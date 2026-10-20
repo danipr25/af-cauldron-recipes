@@ -51,8 +51,22 @@ If a player leaves a slot without a filter, the recipe has to come from the slot
 
 The game uses internal names (`GoldDust5`, `GentianNectar`). Names shown to players must come from the game's own localized data, never written by hand.
 
+## Read from Lua (verified in game 2026-10-20)
+
+Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
+
+| What | Call | Result |
+|---|---|---|
+| Item table | `gameState.EnemyConfig` | `/Game/DataTables/DT_Enemies.DT_Enemies`, 180 rows (first: `PortalSigil`, `AdPortalSigil`, `GelatinousGridlock`, `CashRegister`, `Wood`) |
+| Localized name | `GetItemDisplayName(FName(item), gameState, out)` on `/Game/Blueprints/Core/BP_BeltTDFunctionLib.Default__BP_BeltTDFunctionLib_C` | `out.DisplayName` = "Gentian Nectar" |
+| Icon | `GetEnemyIcon(FName(item), gameState, out)` on the same library | `out.OutTexture` = `/Game/Arts/UI/Ingredients/T_UI_GentianNectar` |
+| Recipe result | `gameState:GetCauldronProduct({FName...}, outTime, outHeat)` | returns the product `FName`; out tables give `outTotalTime` and `outHeatPower` |
+
+`GetCauldronProduct` matches the panels above: `GentianNectar` + `Gentian` gives `Clay` (time 3.6, heat 4.6) and `GoldCoin` + `CopperCoin` + `SilverCoin` gives `GoldDust5` (time 27.3, heat 2278.5). So the game's own recipe resolution can be asked directly.
+
+**Do not call `QueryEnemyConfig`** (on `BeltTDUserWidget`) from Lua: it takes one parameter and returns the whole `FBeltTDEnemyConfig` row, and calling it crashed the game. Reading `CauldronCost`, `CauldronTarget` and `CauldronMulti` per item is still an open question.
+
 ## Seen in the header dump only (not tested in game)
 
-- `ABeltTDGameStateBase.GetCauldronProduct(const TArray<FName>& ingList, double& outTotalTime, double& outHeatPower)`: the game's own recipe resolution.
 - The game state holds the DataTables `EnemyConfig` and `EnemyCraftingConfig`, the source of the cauldron values (`CauldronCost`, `CauldronTarget`, `CauldronMulti` in `DT_Enemies`).
 - `UCauldronFacilityComponent.NetCommandSetFilterName(int32 slotIndex, FName FilterName)`: called when a filter changes.
