@@ -123,9 +123,6 @@ function catalog.load(log)
   if #self.items == 0 then
     return nil, "the item table is empty"
   end
-  if #self.ingredients > 255 then
-    return nil, "the game has more than 255 cauldron ingredients, which this version of the mod cannot index"
-  end
   self.key = #self.items .. ":" .. tostring(first) .. ":" .. tostring(last)
   self.hiddenInGame = hiddenSeen
   self.hiddenUnreadable = unreadable

@@ -36,7 +36,6 @@ end
 --   onDone(seconds): when every combination was asked. `seconds` is the time spent in chunks.
 --   onFail(problem): when the oracle raised an error. The job stops.
 function index.new(options)
-  assert(options.count <= 255, "the index packs ingredient positions into one byte")
   local self = setmetatable({}, Index)
   self.count = options.count
   self.prepare = options.prepare
@@ -60,6 +59,11 @@ function index.new(options)
   self.done = false
   self.failed = false
   self.cancelled = false
+  if self.count > 255 then
+    -- Positions are packed into one byte each: a bigger game cannot be indexed, but nothing else depends on it.
+    self.failed = true
+    self.failure = "the game has more than 255 cauldron ingredients, which this version of the mod cannot index"
+  end
   return self
 end
 
@@ -80,6 +84,10 @@ function Index:start()
     return
   end
   self.started = true
+  if self.failed then
+    self.onFail(self.failure)
+    return
+  end
   if self.total == 0 then
     self.done = true
     self.onProgress(100)

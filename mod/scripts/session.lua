@@ -91,6 +91,7 @@ function Session:prepare(generation, attempt)
   self:validateRecord()
   if self.index then
     self.index:start()
+    self.index:resume() -- a job paused before the catalog was ready carries on
   end
   self.deps.onReady(self.world)
   self.deps.onRefresh()

@@ -195,7 +195,9 @@ function Ui:buildRecipes(page, rec, catalog, index)
       for place, name in ipairs(entry.inputs) do
         positions[place] = catalog.ingredientIndex[name]
       end
-      discovered[#discovered + 1] = indexModule.pack(positions[1], positions[2], positions[3])
+      if #positions == #entry.inputs then -- an ingredient the game no longer lists is skipped
+        discovered[#discovered + 1] = indexModule.pack(positions[1], positions[2], positions[3])
+      end
     end
   end
   local indexed = nil
