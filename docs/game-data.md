@@ -134,4 +134,5 @@ Each of these ships disabled or marked, as AGENTS.md section 6 asks.
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.
-- How the page lays out a nav row above a list that fills the rest of the page, and `Indexing... N%` updating while the index is built.
+- How the page lays out a nav row above a list that fills the rest of the page, and `finding recipes N%` updating while the index is built.
+- A gold `Discovered (n)` heading on a list row (color on list texts), a disabled `>` turning on when the page count grows while recipes are found, and whether the cream status color (0.88, 0.82, 0.70) is readable on the panel.
