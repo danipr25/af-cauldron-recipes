@@ -67,7 +67,7 @@ function ui.new(deps)
   self.building = false
   self.generation = nil
   self.model = nil
-  -- What the page built last has that progress may touch: { progress = function(percent), recount, pages }
+  -- What the page built last lets progress touch: { onProgress = function(percent) } (set by the view that needs it)
   self.current = {}
   return self
 end
@@ -86,6 +86,7 @@ function Ui:install()
       local ok, problem = xpcall(self.build, debug.traceback, self, page)
       self.building = false
       if not ok then
+        self.current = {}
         error(problem, 0)
       end
     end,
@@ -107,14 +108,11 @@ function Ui:refresh()
 end
 
 -- The index advanced. Only the status line of the page built last is touched, and only while it is on the page.
--- A recipes page is built again only when it now has more pages, so the next page can be reached.
+-- The page is not built again for it: only when the index is done (session onDone).
 function Ui:onProgress(percent)
-  local current = self.current
-  if current.progress then
-    current.progress(percent)
-  end
-  if current.recount and current.recount() ~= current.pages then
-    self:refresh()
+  local onProgress = self.current.onProgress
+  if onProgress then
+    onProgress(percent)
   end
 end
 
@@ -213,11 +211,11 @@ function Ui:buildGrid(page, rec, catalog, index)
   input:set(model.search)
   status = sentence(page, "", MUTED)
   if waiting then
-    self.current.progress = function(percent)
+    self.current.onProgress = function(percent)
       status:set(statusLine(percent))
     end
   end
-  if #visible == 0 then
+  if #visible == 0 and not waiting then
     sentence(
       page,
       string.format("No recipes discovered yet for the %s. ", MODE_LABEL[model.mode]:lower())
@@ -287,12 +285,10 @@ function Ui:buildRecipes(page, rec, catalog, index)
       self:refresh()
     end
   end)
-  nav:text(string.format(" Page %d of %d ", result.page, result.pages))
+  local pageText = nav:text(string.format(" Page %d of %d ", result.page, result.pages))
   local following = nav:button(">", function()
-    if model.pageIndex < result.pages then
-      model.pageIndex = model.pageIndex + 1
-      self:refresh()
-    end
+    model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
+    self:refresh()
   end)
   self:setEnabled(previous, result.page > 1)
   -- While recipes are still being found, a page that does not exist yet is not offered.
@@ -309,19 +305,20 @@ function Ui:buildRecipes(page, rec, catalog, index)
       local current = listing.page(now, later, 1, PAGE_SIZE)
       return current.pages, current.total
     end
-    self.current.progress = function(percent)
-      local _, total = live()
+    local shownPages = result.pages
+    self.current.onProgress = function(percent)
+      local pages, total = live()
       status:set(statusLine(total, percent))
-    end
-    self.current.pages = result.pages
-    self.current.recount = function()
-      if not finding(index) then
-        return result.pages -- the last rebuild is the one when the index is done
+      if pages > shownPages then
+        shownPages = pages
+        pageText:set(string.format(" Page %d of %d ", result.page, pages))
+        self:setEnabled(following, result.page < pages)
       end
-      return (live())
     end
   end
-  failedLine(page, index)
+  if rec:otherVisible(product) then
+    failedLine(page, index)
+  end
   if result.total == 0 then
     sentence(page, waiting and "No recipes to show for this item yet." or "No recipes to show for this item.")
   end
