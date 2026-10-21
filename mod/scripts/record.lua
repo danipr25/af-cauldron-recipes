@@ -311,6 +311,18 @@ function record.visibleChanged(before, after)
   return false
 end
 
+-- A text that is the same for two records with the same stored settings (not the discovered list): tells whether a
+-- command changed anything.
+function Record:signature()
+  local t = self:toTable()
+  return table.concat({
+    tostring(t.all),
+    table.concat(t.unlocked, ","),
+    table.concat(t.locked, ","),
+    table.concat(t.hiddenProducts, ","),
+  }, "|")
+end
+
 -- Numbers for recipes.status.
 function Record:counts()
   local total, hiddenCount = 0, 0

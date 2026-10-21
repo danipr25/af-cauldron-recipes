@@ -36,10 +36,13 @@ function commands.install(deps)
   -- Runs `change(rec)`, saves, refreshes the page and says what happened.
   local function apply(rec, change, message, out)
     local before = rec:snapshot(universe())
+    local signature = rec:signature()
     change(rec)
     local after = rec:snapshot(universe())
-    session:save()
-    deps.onChange()
+    if rec:signature() ~= signature then
+      session:save()
+      deps.onChange()
+    end
     if session.catalog and not record.visibleChanged(before, after) then
       out(message .. " Nothing that was visible changed.")
     else
@@ -198,7 +201,11 @@ function commands.install(deps)
       end
       local index = session.index
       if index then
-        out(index:isDone() and "Recipe index: ready" or string.format("Recipe index: %d%%", index:progress()))
+        if index:isFailed() then
+          out("Recipe index: failed, see UE4SS.log. Only discovered recipes are listed.")
+        else
+          out(index:isDone() and "Recipe index: ready" or string.format("Recipe index: %d%%", index:progress()))
+        end
       end
     end,
   })
