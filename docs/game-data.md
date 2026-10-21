@@ -120,7 +120,7 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 ## Detecting the recipes on the player's cauldrons (verified in game 2026-10-21)
 
 - `FindAllOf("BP_PewterCauldron_C")` and `FindAllOf("BP_SilverCauldron_C")` list the placed cauldrons; each one's `CauldronFacility.FacilityContainer.Slots[i].SlotFilterName` and `CachedOutputName` read as in the table above (a save with one cauldron of each kind).
-- A post hook on `/Script/BeltTD.CauldronFacilityComponent:NetCommandSetFilterName` fires when the player changes a slot filter. The context is the cauldron's component (`GetOwner()` is the cauldron actor) and the parameters are the slot index, counted from 0, and the new filter. Clearing a slot's filter fires it with `None`; choosing a new item fires it again with the item's name.
+- A hook (single callback) on `/Script/BeltTD.CauldronFacilityComponent:NetCommandSetFilterName` fires when the player changes a slot filter. The context is the cauldron's component (`GetOwner()` is the cauldron actor) and the parameters are the slot index, counted from 0, and the new filter. Clearing a slot's filter fires it with `None`; choosing a new item fires it again with the item's name.
 
 ## Seen in the header dump only (not tested in game)
 
@@ -131,7 +131,6 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 Each of these ships disabled or marked, as AGENTS.md section 6 asks.
 
 - `bHideInGame` on the item rows (`FBeltTDEnemyConfig`, header dump): what it means for cauldron ingredients and products is unknown. The mod logs the items that have it set and reads it only to log (`EXCLUDE_HIDDEN = false` in `catalog.lua`).
-- A post hook on `NetCommandSetFilterName` that receives the slot (from 0) and the new filter. Only the pre callback was seen so far (the save probe).
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.

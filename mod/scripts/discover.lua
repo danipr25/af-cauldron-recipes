@@ -62,6 +62,18 @@ end
 
 -- Records one recipe. `source` is "load", "filter" or "crafting". Returns true when the record changed.
 function Discover:record(rec, mode, inputs, source)
+  local catalog_ = self.deps.session.catalog
+  if catalog_ then
+    for _, name in ipairs(inputs) do
+      if catalog_.ingredientIndex[name] == nil then
+        self:warnOnce(
+          "ingredient",
+          "a cauldron uses '" .. name .. "', which is not a known cauldron ingredient, so its recipe was not recorded"
+        )
+        return false
+      end
+    end
+  end
   local product = catalog.productOfNames(inputs)
   if not product then
     self:warnOnce("noproduct", "the game gave no product for a cauldron recipe, so it was not recorded")
@@ -236,11 +248,9 @@ function Discover:install()
       end
     end
   end
-  local function nothing() end
   local ok, problem = pcall(
     RegisterHook,
     FILTER_HOOK,
-    nothing,
     guard("filter", function(context, slot, filter)
       self:onFilterChanged(context:get(), slot:get(), filter:get())
     end)
@@ -256,7 +266,6 @@ function Discover:install()
     local inventoryOk, inventoryProblem = pcall(
       RegisterHook,
       INVENTORY_HOOK,
-      nothing,
       guard("inventory", function(context)
         self:onInventoryUpdate(context:get())
       end)
