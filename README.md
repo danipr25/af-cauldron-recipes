@@ -11,7 +11,7 @@ Unofficial fan project. Alchemy Factory belongs to its developers.
 - A **Cauldron Recipes** tab next to Player, World and Recognition.
   - Buttons for **Normal** and **Advanced** cauldrons, and a search box. The search looks at the item names as the game shows them. It ignores the case of the letters A to Z only: other letters (accents, for example) must match exactly.
   - A grid of the products that have at least one visible recipe in that mode. Click one to see its recipes, 20 per page, with Previous, Next and Back.
-  - A recipe shows its ingredients, then the product. Recipes you have already set on one of your cauldrons are marked "discovered".
+  - A recipe shows its ingredients, then the product. Recipes you have already set on one of your cauldrons are listed first, under a "Discovered" heading.
 - Recipes come from the game, never from a list in the mod: the mod asks the game which product each combination gives. Each time the game starts, the first world you load builds an index of every combination in the background, a few milliseconds per frame; the page shows "Indexing..." with a percentage until it is done. Indexing takes about a minute in the background and uses about 25 MB of Lua memory.
 
 ## Which recipes are shown

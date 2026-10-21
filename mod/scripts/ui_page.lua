@@ -214,23 +214,25 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local result = listing.page(discovered, indexed, model.pageIndex, PAGE_SIZE)
   model.pageIndex = result.page
 
+  -- Two short rows: the panel is narrow, and a row that is too wide runs off its edge.
+  local top = page:row()
+  top:button("Back", function()
+    model.view = "grid"
+    self:refresh()
+  end)
   local nav = page:row()
-  nav:button(result.page == 1 and "Previous (first page)" or "Previous", function()
+  nav:button("Previous", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
       self:refresh()
     end
   end)
   nav:text(string.format(" page %d of %d ", result.page, result.pages))
-  nav:button(result.page == result.pages and "Next (last page)" or "Next", function()
+  nav:button("Next", function()
     if model.pageIndex < result.pages then
       model.pageIndex = model.pageIndex + 1
       self:refresh()
     end
-  end)
-  nav:button("Back", function()
-    model.view = "grid"
-    self:refresh()
   end)
 
   page:text(string.format("%s: %s recipes", catalog.display(product), MODE_LABEL[mode]))
@@ -240,7 +242,13 @@ function Ui:buildRecipes(page, rec, catalog, index)
   end
 
   local list = page:list()
+  local heading = nil -- "Discovered" or "Other recipes": the heading last written (headings are not recipes)
   for _, item in ipairs(result.items) do
+    local wanted = item.discovered and "Discovered" or "Other recipes"
+    if wanted ~= heading then
+      heading = wanted
+      list:row():text(heading)
+    end
     local row = list:row()
     local first, second, third = indexModule.unpack(item.packed)
     local positions = { first, second, third }
@@ -252,9 +260,6 @@ function Ui:buildRecipes(page, rec, catalog, index)
     end
     row:text(" = ")
     row:item(product, 1)
-    if item.discovered then
-      row:text("  discovered")
-    end
   end
 end
 
