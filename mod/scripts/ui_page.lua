@@ -51,7 +51,7 @@ end
 
 local function failedLine(page, index)
   if index:isFailed() then
-    sentence(page, "Not every recipe could be listed, see UE4SS.log.")
+    sentence(page, "Not every recipe could be listed. See UE4SS.log.")
   end
 end
 
@@ -138,7 +138,7 @@ function Ui:build(page)
     return
   end
   if rec.readOnly then
-    sentence(page, "Recipes cannot be saved for this world, see UE4SS.log. Discovered recipes are not tracked.")
+    sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
   end
   if self.model.view == "recipes" and self.model.selected then
     self:buildRecipes(page, rec, catalog, index)
@@ -220,8 +220,8 @@ function Ui:buildGrid(page, rec, catalog, index)
   if #visible == 0 then
     sentence(
       page,
-      "No recipes discovered yet in this world. Set the filters of a cauldron, "
-        .. "or use recipes.unlock <item> in the console."
+      string.format("No recipes discovered yet for the %s. ", MODE_LABEL[model.mode]:lower())
+        .. "Set the filters of a cauldron, or use recipes.unlock <item> in the console."
     )
   end
   if rec:anyUnlocked() then
@@ -269,7 +269,7 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local result = listing.page(discovered, indexed, model.pageIndex, PAGE_SIZE)
   model.pageIndex = result.page
   local counts = listing.counts(discovered, indexed)
-  local waiting = finding(index)
+  local waiting = rec:otherVisible(product) and finding(index)
 
   -- A row holds about three buttons: more would run past the panel's edge.
   local top = page:row()
@@ -298,23 +298,32 @@ function Ui:buildRecipes(page, rec, catalog, index)
   -- While recipes are still being found, a page that does not exist yet is not offered.
   self:setEnabled(following, result.page < result.pages)
 
-  local function statusLine(percent)
-    return statusText(MODE_LABEL[mode] .. ", " .. plural(result.total, "recipe"), waiting and percent or nil)
+  local function statusLine(total, percent)
+    return statusText(MODE_LABEL[mode] .. ", " .. plural(total, "recipe"), waiting and percent or nil)
   end
-  local status = sentence(page, statusLine(index:progress()), MUTED)
+  local status = sentence(page, statusLine(result.total, index:progress()), MUTED)
   if waiting then
+    -- The pages and the total as they are now (the index adds recipes while it runs).
+    local function live()
+      local now, later = recipeLists(rec, catalog, index, mode, product)
+      local current = listing.page(now, later, 1, PAGE_SIZE)
+      return current.pages, current.total
+    end
     self.current.progress = function(percent)
-      status:set(statusLine(percent))
+      local _, total = live()
+      status:set(statusLine(total, percent))
     end
     self.current.pages = result.pages
     self.current.recount = function()
-      local now, later = recipeLists(rec, catalog, index, mode, product)
-      return listing.page(now, later, 1, PAGE_SIZE).pages
+      if not finding(index) then
+        return result.pages -- the last rebuild is the one when the index is done
+      end
+      return (live())
     end
   end
   failedLine(page, index)
   if result.total == 0 then
-    sentence(page, "No recipes to show for this item yet.")
+    sentence(page, waiting and "No recipes to show for this item yet." or "No recipes to show for this item.")
   end
 
   local list = page:list()
