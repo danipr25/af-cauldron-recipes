@@ -44,13 +44,22 @@ function Store:readData(path)
   return data
 end
 
--- Renames a file that cannot be used, so the player keeps it, and starts a new record. Returns the record and
--- "quarantined", or a read-only record and "unreadable" when the file could not be moved away.
-function Store:quarantine(key, path, title, reason)
+-- Renames a file out of the way so the player keeps it. Returns the new path, or nil and why.
+function Store:setAside(key, path)
   local broken = self.dir .. "\\af-cauldron-recipes-" .. key .. ".broken-" .. tostring(self.now()) .. ".json"
-  local fresh = record.new(title)
   local renamed, problem = self.files.rename(path, broken)
   if not renamed then
+    return nil, problem
+  end
+  return broken
+end
+
+-- Sets a file that cannot be used aside and starts a new record. Returns the record and "quarantined", or a
+-- read-only record and "unreadable" when the file could not be moved away.
+function Store:quarantine(key, path, title, reason)
+  local fresh = record.new(title)
+  local broken, problem = self:setAside(key, path)
+  if not broken then
     self.log(
       "the recipe record of this world cannot be used ("
         .. reason
@@ -73,24 +82,33 @@ function Store:quarantine(key, path, title, reason)
 end
 
 -- Loads the record of the world. Always returns a record, and what happened: "new" (no file yet), "loaded",
--- "recovered" (the file was missing but a finished copy of it was there), "quarantined" (the file was unreadable: it
--- was renamed and a new record written), "unreadable" (it could not even be renamed: read only), "newer" (written by
--- a newer mod: read only) or "other-world" (the file belongs to a world with another name: read only). A record
--- that is read only is never written.
+-- "recovered" (the finished copy `<file>.tmp` was used because the file was missing or unreadable), "quarantined"
+-- (the file was unreadable: it was renamed and a new record written), "unreadable" (it could not even be renamed:
+-- read only), "newer" (written by a newer mod: read only) or "other-world" (the file belongs to a world with another
+-- name: read only). A record that is read only is never written. The copy follows the same rules as the file.
 function Store:load(key, title)
   local path = self:path(key)
+  local copyPath = path .. ".tmp"
   local data, why = self:readData(path)
-  local recovered = false
-  if not data and why == "missing" then
-    local copy = self:readData(path .. ".tmp")
-    if copy and record.decode(copy, title) then
-      data, recovered = copy, true
-    else
-      return record.new(title), "new"
+  local source, recovered = path, false
+  if not data then
+    local copy, copyWhy = self:readData(copyPath)
+    if why == "missing" then
+      if copyWhy == "missing" then
+        return record.new(title), "new"
+      end
+      data, source, recovered = copy, copyPath, true
+    elseif copy and record.decode(copy, title) then
+      -- The file is unreadable but its finished copy is fine: keep the file for the player and use the copy.
+      local kept = self:setAside(key, path)
+      if kept then
+        self.log("the recipe record of this world could not be read. It was kept as " .. kept)
+        data, source, recovered = copy, copyPath, true
+      end
     end
   end
   if not data then
-    return self:quarantine(key, path, title, "it is not valid JSON")
+    return self:quarantine(key, source, title, "it is not valid JSON")
   end
 
   if type(data.version) == "number" and data.version > record.VERSION then
@@ -105,7 +123,7 @@ function Store:load(key, title)
 
   local loaded, problem = record.decode(data, title)
   if not loaded then
-    return self:quarantine(key, path, title, tostring(problem))
+    return self:quarantine(key, source, title, tostring(problem))
   end
 
   if data.world ~= title then
@@ -148,7 +166,18 @@ function Store:save(key, rec)
     self.log("could not save the recipes to " .. temporary .. " (" .. tostring(problem) .. ")")
     return false
   end
-  self.files.remove(path)
+  local removed, removeProblem = self.files.remove(path)
+  -- A file that was not there is fine; one that is still there means the old record cannot be replaced.
+  if not removed and self.files.read(path) ~= nil then
+    self.log(
+      "could not replace the recipe file ("
+        .. tostring(removeProblem)
+        .. "). The new copy "
+        .. temporary
+        .. " was kept and the old file was not changed"
+    )
+    return false
+  end
   local renamed, renameProblem = self.files.rename(temporary, path)
   if not renamed then
     self.log(

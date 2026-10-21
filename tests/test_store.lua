@@ -145,6 +145,51 @@ return {
       lu.assertEquals(f.disk[FILE], before)
     end,
 
+    testAnUnreadableFileWithAFinishedCopyUsesTheCopyAndKeepsTheFile = function()
+      local f = fixture()
+      f.disk[FILE] = "garbage"
+      f.disk[FILE .. ".tmp"] = f.json.encode(sample():toTable())
+      local rec, status = f.store:load("W_1", "W 1")
+      lu.assertEquals(status, "recovered")
+      lu.assertEquals(#rec.discovered, 1)
+      lu.assertEquals(f.disk[BROKEN], "garbage")
+      lu.assertEquals(select(2, f.store:load("W_1", "W 1")), "loaded")
+    end,
+
+    testTheCopyFollowsTheSameRulesAsTheFile = function()
+      local newer = fixture()
+      newer.disk[FILE .. ".tmp"] = newer.json.encode({ version = 2, world = "W 1" })
+      local rec, status = newer.store:load("W_1", "W 1")
+      lu.assertEquals({ status, rec.readOnly }, { "newer", "newer" })
+      lu.assertNil(newer.disk[FILE])
+
+      local broken = fixture()
+      broken.disk[FILE .. ".tmp"] = "garbage"
+      local _, brokenStatus = broken.store:load("W_1", "W 1")
+      lu.assertEquals(brokenStatus, "quarantined")
+      lu.assertEquals(broken.disk[BROKEN], "garbage")
+    end,
+
+    testAFileThatCannotBeRemovedIsReportedAndKept = function()
+      local f = fixture()
+      f.store:save("W_1", sample())
+      local before = f.disk[FILE]
+      f.store.files.remove = function()
+        return nil, "denied"
+      end
+      lu.assertFalse(f.store:save("W_1", sample()))
+      lu.assertEquals(f.disk[FILE], before)
+      lu.assertStrContains(f.logs[#f.logs], "could not replace")
+    end,
+
+    testAMissingOldFileIsNotAnError = function()
+      local f = fixture()
+      f.store.files.remove = function()
+        return nil, "No such file"
+      end
+      lu.assertTrue(f.store:save("W_1", sample()))
+    end,
+
     testAFailedRenameKeepsTheFinishedCopy = function()
       local f = fixture()
       f.store.files.rename = function()
