@@ -103,7 +103,28 @@ Compared with `GetCauldronProduct` on 28,900 Advanced pairs and 6,000 Normal tri
 - This model matched 28,896 of 28,900 pairs. The 4 that differ are Topaz with Perfumed Soap or Perfumed Soap powder (both orders), an exact tie between Quicklime and Iron Sand that the game breaks the other way; probably a floating point detail.
 - The web calculator's Advanced rules (game 1.0) differ in 380 pairs: they never let an ingredient be the product, break ties toward the higher target, and fail when there is no candidate.
 
+## Which game is loaded (verified in game 2026-10-21)
+
+Game 1.1.5023, UE4SS 1181, a throwaway Lua mod, two saves from two different worlds.
+
+The game keeps each playthrough as a "world" with several save slots (manual saves and autosaves). The loaded world is on the game instance subsystem `UGameSaveLoadSubsystem` (`FindFirstOf("GameSaveLoadSubsystem")`):
+
+| Field | Main menu | After loading a save |
+|---|---|---|
+| `WorldTitleName` (FString) | empty on the first menu, the last world afterwards | the world's name plus a number, for example `Prueba_2609125624` or `FMA_2512149272` |
+| `ReloadedName` (FString) | as above | the slot that was loaded, for example `AutoSave2` |
+| `IsPreviewScene` (bool) | `true` | `false` |
+| `IsReloaded` (bool) | `false` | `true` inside the `RegisterInitGameStatePostHook` callback of the load, `false` later |
+
+So a world is told apart by `WorldTitleName`, read in `RegisterInitGameStatePostHook` when `IsPreviewScene` is `false`. Loading another slot of the same world keeps the same `WorldTitleName`.
+
+Not checked yet: a brand new game (`NewGameName`), a world name with non-ASCII letters (the name is typed by the player; Lua's `io.open` cannot open paths with them, see `af-modloader/docs/ue4ss.md`), sandbox worlds and multiplayer.
+
+## Detecting the recipes on the player's cauldrons (verified in game 2026-10-21)
+
+- `FindAllOf("BP_PewterCauldron_C")` and `FindAllOf("BP_SilverCauldron_C")` list the placed cauldrons; each one's `CauldronFacility.FacilityContainer.Slots[i].SlotFilterName` and `CachedOutputName` read as in the table above (a save with one cauldron of each kind).
+- A post hook on `/Script/BeltTD.CauldronFacilityComponent:NetCommandSetFilterName` fires when the player changes a slot filter. The context is the cauldron's component (`GetOwner()` is the cauldron actor) and the parameters are the slot index, counted from 0, and the new filter. Clearing a slot's filter fires it with `None`; choosing a new item fires it again with the item's name.
+
 ## Seen in the header dump only (not tested in game)
 
 - The game state holds the DataTables `EnemyConfig` and `EnemyCraftingConfig`, the source of the cauldron values (`CauldronCost`, `CauldronTarget`, `CauldronMulti` in `DT_Enemies`).
-- `UCauldronFacilityComponent.NetCommandSetFilterName(int32 slotIndex, FName FilterName)`: called when a filter changes.
