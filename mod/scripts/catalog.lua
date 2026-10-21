@@ -20,14 +20,21 @@ local function isValid(object)
   return ok and valid == true
 end
 
+-- The text of an FName, FString or string, or nil when there is none (never the string "nil").
 local function text(value)
+  if value == nil then
+    return nil
+  end
   local ok, result = pcall(function()
     return value:ToString()
   end)
-  if ok then
+  if ok and type(result) == "string" then
     return result
   end
-  return tostring(value)
+  if type(value) == "string" then
+    return value
+  end
+  return nil
 end
 catalog.text = text
 
@@ -35,11 +42,18 @@ local function number(value)
   return tonumber(value) or tonumber(tostring(value))
 end
 
+-- The game state is kept for the session and looked up again only when it is no longer valid.
+local cachedState = nil
 local function gameState()
+  if isValid(cachedState) then
+    return cachedState
+  end
   local state = FindFirstOf(GAME_STATE)
   if isValid(state) then
+    cachedState = state
     return state
   end
+  cachedState = nil
   return nil
 end
 
@@ -50,7 +64,7 @@ local function productOf(state, names)
     list[index] = FName(name)
   end
   local product = text(state:GetCauldronProduct(list, {}, {}))
-  if product == "None" or product == "" then
+  if product == nil or product == "None" or product == "" then
     return nil
   end
   return product
@@ -71,7 +85,9 @@ end
 
 -- Reads the item table. Returns the catalog, or nil and why (the game state is not there yet, the table is empty).
 -- log(text) is used for what a player or the developer should know.
+local loadTimed = false
 function catalog.load(log)
+  local startedAt = os.clock()
   local state = gameState()
   if not state then
     return nil, "the game is not ready"
@@ -89,6 +105,9 @@ function catalog.load(log)
   local read, problem = pcall(function()
     table_:ForEachRow(function(name, row)
       name = text(name)
+      if name == nil then
+        return
+      end
       first = first or name
       last = name
       self.items[#self.items + 1] = name
@@ -126,6 +145,10 @@ function catalog.load(log)
   self.key = #self.items .. ":" .. tostring(first) .. ":" .. tostring(last)
   self.hiddenInGame = hiddenSeen
   self.hiddenUnreadable = unreadable
+  if not loadTimed then
+    loadTimed = true
+    log(string.format("read the item table in %.0f ms", (os.clock() - startedAt) * 1000))
+  end
   self.fnames = {}
   for index, name in ipairs(self.ingredients) do
     self.fnames[index] = FName(name)
@@ -147,7 +170,7 @@ function catalog.load(log)
       library:GetItemDisplayName(FName(name), gameState(), out)
       return text(out.DisplayName)
     end)
-    if shownOk and shownValue ~= "" then
+    if shownOk and shownValue ~= nil and shownValue ~= "" then
       shown = shownValue
     end
     displayCache[name] = shown
@@ -179,7 +202,7 @@ function catalog.load(log)
         list = { fnames[i], fnames[j], fnames[k] }
       end
       local product = text(game:GetCauldronProduct(list, {}, {}))
-      if product == "None" or product == "" then
+      if product == nil or product == "None" or product == "" then
         return nil
       end
       return product

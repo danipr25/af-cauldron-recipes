@@ -145,6 +145,11 @@ function Record:addEntry(mode, inputs, product, seen)
   return entry, true
 end
 
+-- The entry of this recipe, or nil.
+function Record:find(mode, inputs)
+  return self.byKey[keyOf(mode, sortedCopy(inputs))]
+end
+
 -- Records that the player set this recipe on a cauldron. `seen` is "filter" (the player changed a filter),
 -- "crafting" or "load" (found when the world was loaded). Only the first two bring a hidden product back, so a
 -- load never undoes a lock. Returns true when anything changed (and so the file must be written).

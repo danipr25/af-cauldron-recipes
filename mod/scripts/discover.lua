@@ -43,6 +43,7 @@ end
 --   log(text)
 --   session: the session (session.lua)
 --   later(ms, fn): runs fn on the game thread later
+--   onFirstScan(world): the first delayed scan of a world entry has run
 --   onChange(): the record changed and was saved: refresh the page
 function discover.new(deps)
   local self = setmetatable({}, Discover)
@@ -74,7 +75,9 @@ function Discover:record(rec, mode, inputs, source)
       end
     end
   end
-  local product = catalog.productOfNames(inputs)
+  -- A recipe already in the record does not need the game's answer again.
+  local existing = rec:find(mode, inputs)
+  local product = existing and existing.product or catalog.productOfNames(inputs)
   if not product then
     self:warnOnce("noproduct", "the game gave no product for a cauldron recipe, so it was not recorded")
     return false
@@ -126,6 +129,7 @@ function Discover:scan(source)
   if not world or not rec or rec.readOnly then
     return false
   end
+  local startedAt = os.clock()
   local changed = false
   local stateWorld = nil
   local state = FindFirstOf("BP_BeltTDGameState_C")
@@ -162,6 +166,10 @@ function Discover:scan(source)
       end
     end
   end
+  if not self.scanTimed then
+    self.scanTimed = true
+    self.deps.log(string.format("first scan of the cauldrons took %.0f ms", (os.clock() - startedAt) * 1000))
+  end
   return changed
 end
 
@@ -169,11 +177,16 @@ end
 -- exist yet. Each scan checks that the same world is still loaded.
 function Discover:scanSoon(world)
   local generation = world.generation
+  local firstDone = false
   for _, delay in ipairs(SCAN_DELAYS_MS) do
     self.deps.later(delay, function()
       local now = self.deps.api.world.current()
       if now and now.generation == generation then
         self:finish(self:scan("load"))
+        if not firstDone then
+          firstDone = true
+          self.deps.onFirstScan(now)
+        end
       end
     end)
   end
