@@ -2,6 +2,22 @@
 -- twice. Pure Lua (tests/test_listing.lua). Recipes are the whole numbers made by index.pack.
 local listing = {}
 
+-- How many recipes there are under each heading across every page: { discovered, other }. A recipe that is in both
+-- lists counts as discovered only. Same arguments as listing.page.
+function listing.counts(discovered, indexed)
+  local seen = {}
+  for _, packed in ipairs(discovered) do
+    seen[packed] = true
+  end
+  local other = 0
+  for _, packed in ipairs(indexed or {}) do
+    if not seen[packed] then
+      other = other + 1
+    end
+  end
+  return { discovered = #discovered, other = other }
+end
+
 -- discovered: list of packed recipes the player has seen, in the order to show them
 -- indexed: list of packed recipes from the index (any order), or nil while there is none yet
 -- Returns { total, pages, page, items }: `page` is the requested page kept between 1 and `pages`, and `items` are
