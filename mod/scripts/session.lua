@@ -58,9 +58,6 @@ function Session:enter(world)
   self.world = world
   self.record, self.recordStatus = self.deps.store:load(world.key, world.title)
   log(string.format("world '%s': record %s", world.title, self.recordStatus))
-  if self.index then
-    self.index:resume()
-  end
   self:prepare(world.generation, 1)
 end
 
@@ -88,23 +85,33 @@ function Session:prepare(generation, attempt)
     return
   end
   self:adopt(fresh)
+  self.deps.onReady(self.world)
+  self.deps.onRefresh()
+end
+
+-- Called after the first delayed scan of a world entry, so the game's own recipe answers are never asked inside the
+-- game's world-loading callback: checks the record and starts (or resumes) the index.
+function Session:afterFirstScan(world)
+  if not self:isCurrent(world.generation) then
+    return
+  end
   self:validateRecord()
   if self.index then
     self.index:start()
     self.index:resume() -- a job paused before the catalog was ready carries on
   end
-  self.deps.onReady(self.world)
-  self.deps.onRefresh()
 end
 
 -- Keeps the catalog we have when the item table is the same, otherwise starts again with the new one.
 function Session:adopt(fresh)
   local log = self.deps.log
   if self.catalog and self.catalog.key == fresh.key then
+    -- A job that failed (not for too many ingredients) is replaced, so one bad chunk does not end indexing.
+    if self.index and self.index:isFailed() and not self.index:isRefused() then
+      log("trying the recipe index again")
+      self:newIndex()
+    end
     return
-  end
-  if self.index then
-    self.index:cancel()
   end
   self.catalog = fresh
   log(
@@ -123,7 +130,15 @@ function Session:adopt(fresh)
       fresh.hiddenUnreadable
     )
   )
-  local api = self.deps.api
+  self:newIndex()
+end
+
+-- Makes a new index job for the current catalog (it starts after the first scan of a world entry).
+function Session:newIndex()
+  local fresh, api, log = self.catalog, self.deps.api, self.deps.log
+  if self.index then
+    self.index:cancel()
+  end
   self.index = indexModule.new({
     count = #fresh.ingredients,
     prepare = function()

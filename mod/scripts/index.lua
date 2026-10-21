@@ -62,6 +62,7 @@ function index.new(options)
   if self.count > 255 then
     -- Positions are packed into one byte each: a bigger game cannot be indexed, but nothing else depends on it.
     self.failed = true
+    self.refused = true -- unlike other failures, a new job would fail the same way
     self.failure = "the game has more than 255 cauldron ingredients, which this version of the mod cannot index"
   end
   return self
@@ -112,6 +113,11 @@ end
 
 function Index:isDone()
   return self.done
+end
+
+-- True when the game has too many ingredients for the index: a new job would not help.
+function Index:isRefused()
+  return self.refused == true
 end
 
 function Index:isFailed()
