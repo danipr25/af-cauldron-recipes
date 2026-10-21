@@ -64,7 +64,44 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 
 `GetCauldronProduct` matches the panels above: `GentianNectar` + `Gentian` gives `Clay` (time 3.6, heat 4.6) and `GoldCoin` + `CopperCoin` + `SilverCoin` gives `GoldDust5` (time 27.3, heat 2278.5). So the game's own recipe resolution can be asked directly.
 
-**Do not call `QueryEnemyConfig`** (on `BeltTDUserWidget`) from Lua: it takes one parameter and returns the whole `FBeltTDEnemyConfig` row, and calling it crashed the game. Reading `CauldronCost`, `CauldronTarget` and `CauldronMulti` per item is still an open question.
+**Do not call `QueryEnemyConfig`** (on `BeltTDUserWidget`) from Lua: it takes one parameter and returns the whole `FBeltTDEnemyConfig` row, and calling it crashed the game. Read the cauldron values with the DataTable binding below instead.
+
+## Cauldron values and recipe rules (verified in game 2026-10-21)
+
+Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
+
+### Reading the values
+
+UE4SS 1181 has a native `UDataTable` binding (`UE4SS/src/LuaType/LuaUDataTable.cpp`). It reads rows straight from the table's memory, without calling a game function, and it did not crash:
+
+```lua
+local dt = gameState.EnemyConfig          -- #dt == 180
+local row = dt:FindRow("Gentian")         -- row.CauldronCost == 400.0, row.CauldronTarget == 500.0, row.CauldronMulti == 0.0
+dt:ForEachRow(function(name, row) ... end) -- every row, in the table's order
+```
+
+The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items a cauldron takes) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. Some of the 170 are hidden in game (`bHideInGame`): which ones a player can actually put in a cauldron is not checked.
+
+`UDataTableFunctionLibrary:GetDataTableColumnAsString` exists as a fallback; it was not needed and is not tested.
+
+### The game's own answer: `GetCauldronProduct`
+
+- It is fast: 28,900 calls (every ordered pair of the 170 ingredients) took 284 ms in Lua.
+- It never returned `None` and never raised for any of 34,900 combinations.
+- The order of the ingredients does not matter: every pair gave the same product in both orders. A real Advanced cauldron also gave the same product whichever slot each ingredient was in (checked by the user).
+- It matches a real cauldron on a case where the rules below changed since game 1.0: Flax Seeds (`FlaxSeed`) + Impure Copper Powder (`CopperPowder`) gives Coke, both from `GetCauldronProduct` and in a real Advanced cauldron (checked by the user on 2026-10-21). The web calculator recorded Coal for this on game 1.0.
+
+So the mod asks `GetCauldronProduct` for every product instead of reimplementing the rules: the result is the game's own, whatever a patch changes.
+
+### What the rules look like (for understanding, not for the mod)
+
+Compared with `GetCauldronProduct` on 28,900 Advanced pairs and 6,000 Normal triples. "Targets" are the rows with `CauldronMulti > 0`; "table order" is the order of `ForEachRow`.
+
+- **Normal (3 slots)**: the web calculator's rules (`lib/cauldron.ts` in `alchemyfactorycalculator`) matched all 6,000 triples. The sum of the three costs is multiplied by 0.5 (three equal), 0.65 (two equal) or 1; the product is the target with the smallest `|value - CauldronTarget| * CauldronMulti`; ties go to the target first in table order. The product can be one of the ingredients.
+- **Advanced (2 slots), two different items**: value = `|costA - costB|`. Candidates are the targets with `CauldronTarget` below the higher cost, except the ingredient with the higher cost (when both costs are equal, both are excluded). The lower-cost ingredient can be the product. The product is the closest candidate; ties go to the target first in table order. With no candidate the product is the target with the lowest `CauldronTarget`.
+- **Advanced, the same item twice**: the product is the target with the smallest `CauldronTarget` above the item's cost, not the item itself; if there is none, the target with the highest `CauldronTarget`.
+- This model matched 28,896 of 28,900 pairs. The 4 that differ are Topaz with Perfumed Soap or Perfumed Soap powder (both orders), an exact tie between Quicklime and Iron Sand that the game breaks the other way; probably a floating point detail.
+- The web calculator's Advanced rules (game 1.0) differ in 380 pairs: they never let an ingredient be the product, break ties toward the higher target, and fail when there is no candidate.
 
 ## Seen in the header dump only (not tested in game)
 
