@@ -1,5 +1,5 @@
--- The Cauldron Recipes tab: Normal and Advanced buttons, a search box, a grid of products, and the recipes of the
--- product the player clicks. Game-facing through the AF Mod Loader API's page widgets: checked in game.
+-- The Cauldron Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
+-- player clicks, in pages. Game-facing through the AF Mod Loader API's page widgets: checked in game.
 local indexModule = require("index")
 local listing = require("listing")
 local names = require("names")
@@ -10,7 +10,50 @@ local Ui = {}
 Ui.__index = Ui
 
 local PAGE_SIZE = 20
-local MODE_LABEL = { normal = "Normal", advanced = "Advanced" }
+local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
+local OTHER_MODE = { normal = "advanced", advanced = "normal" }
+local SWITCH_LABEL = { normal = "Show advanced", advanced = "Show normal" }
+
+-- Colors (red, green, blue). GOLD is the one verified in game. MUTED is a cream for status lines: a plain grey was
+-- too close to white on the panel.
+local GOLD = { 1.0, 0.75, 0.2 }
+local MUTED = { 0.88, 0.82, 0.70 }
+
+local function plural(count, word)
+  return string.format("%d %s%s", count, word, count == 1 and "" or "s")
+end
+
+-- Every sentence on the page wraps at the panel's edge. Returns the text handle.
+local function sentence(page, text, color)
+  local handle = page:text(text, { wrap = true })
+  if color then
+    handle:color(color[1], color[2], color[3])
+  end
+  return handle
+end
+
+-- "<base>, finding recipes 40%", or just one of them. `percent` is nil when the recipes are all found.
+local function statusText(base, percent)
+  if not percent then
+    return base or ""
+  end
+  local finding = string.format("finding recipes %d%%", percent)
+  if base and base ~= "" then
+    return base .. ", " .. finding
+  end
+  return finding:sub(1, 1):upper() .. finding:sub(2)
+end
+
+-- Will the index still add recipes? (False once it is done or has failed.)
+local function finding(index)
+  return not index:isDone() and not index:isFailed()
+end
+
+local function failedLine(page, index)
+  if index:isFailed() then
+    sentence(page, "Not every recipe could be listed, see UE4SS.log.")
+  end
+end
 
 -- deps:
 --   api: the AF Mod Loader API handle
@@ -24,7 +67,8 @@ function ui.new(deps)
   self.building = false
   self.generation = nil
   self.model = nil
-  self.current = {} -- what the page that was built last shows: { progress = text handle or nil }
+  -- What the page built last has that progress may touch: { progress = function(percent), recount, pages }
+  self.current = {}
   return self
 end
 
@@ -62,11 +106,15 @@ function Ui:refresh()
   end
 end
 
--- The index advanced. Only the line of the page built last is touched, and only while it is on the page.
+-- The index advanced. Only the status line of the page built last is touched, and only while it is on the page.
+-- A recipes page is built again only when it now has more pages, so the next page can be reached.
 function Ui:onProgress(percent)
-  local handle = self.current.progress
-  if handle then
-    handle:set(string.format("Indexing... %d%%", percent))
+  local current = self.current
+  if current.progress then
+    current.progress(percent)
+  end
+  if current.recount and current.recount() ~= current.pages then
+    self:refresh()
   end
 end
 
@@ -76,7 +124,7 @@ function Ui:build(page)
   local world, rec = session:current()
   if not world or not rec then
     self.model = nil
-    page:text("Load a save to see recipes.")
+    sentence(page, "Load a save to see recipes.")
     return
   end
   if self.generation ~= world.generation or not self.model then
@@ -86,11 +134,11 @@ function Ui:build(page)
   self.deps.discover:onTabBuild(world)
   local catalog, index = session.catalog, session.index
   if not catalog or not index then
-    page:text("Reading the game's items. This page updates by itself.")
+    sentence(page, "Reading the game's items. This page updates by itself.")
     return
   end
   if rec.readOnly then
-    page:text("Recipes cannot be saved for this world, see UE4SS.log. Discovered recipes are not tracked.")
+    sentence(page, "Recipes cannot be saved for this world, see UE4SS.log. Discovered recipes are not tracked.")
   end
   if self.model.view == "recipes" and self.model.selected then
     self:buildRecipes(page, rec, catalog, index)
@@ -98,18 +146,6 @@ function Ui:build(page)
     self.model.view = "grid"
     self:buildGrid(page, rec, catalog, index)
   end
-end
-
--- The line that says the index is still being built (or that it failed). Returns its handle or nil.
-function Ui:indexLine(page, index)
-  if index:isFailed() then
-    page:text("Not every recipe could be listed, see UE4SS.log.")
-  elseif not index:isDone() then
-    local handle = page:text(string.format("Indexing... %d%%", index:progress()))
-    self.current.progress = handle
-    return handle
-  end
-  return nil
 end
 
 -- Is there a recipe of this product to show in this mode?
@@ -122,19 +158,12 @@ end
 
 function Ui:buildGrid(page, rec, catalog, index)
   local model = self.model
-  local function modeButton(row, mode)
-    local label = MODE_LABEL[mode]
-    if model.mode == mode then
-      label = "[ " .. label .. " ]"
-    end
-    row:button(label, function()
-      model.mode = mode
-      self:refresh()
-    end)
-  end
+  page:text(MODE_LABEL[model.mode]):color(GOLD[1], GOLD[2], GOLD[3])
   local top = page:row()
-  modeButton(top, "normal")
-  modeButton(top, "advanced")
+  top:button(SWITCH_LABEL[model.mode], function()
+    model.mode = OTHER_MODE[model.mode]
+    self:refresh()
+  end)
 
   local visible = {}
   for _, product in ipairs(catalog.products) do
@@ -142,13 +171,22 @@ function Ui:buildGrid(page, rec, catalog, index)
       visible[#visible + 1] = product
     end
   end
+  local waiting = rec:anyUnlocked() and finding(index)
 
   local grid
   local status
+  local shown = 0
+  local function statusLine(percent)
+    local base
+    if #visible > 0 then
+      base = shown == 0 and "Nothing matches the search" or plural(shown, "product")
+    end
+    return statusText(base, waiting and percent or nil)
+  end
   local function fill()
     grid:clear()
     local wanted = names.fold(model.search)
-    local shown = 0
+    shown = 0
     for _, product in ipairs(visible) do
       if wanted == "" or names.fold(catalog.display(product)):find(wanted, 1, true) then
         shown = shown + 1
@@ -162,11 +200,7 @@ function Ui:buildGrid(page, rec, catalog, index)
         })
       end
     end
-    if #visible > 0 and shown == 0 then
-      status:set("Nothing matches the search.")
-    else
-      status:set("")
-    end
+    status:set(statusLine(index:progress()))
   end
 
   local input = page:input({
@@ -177,24 +211,36 @@ function Ui:buildGrid(page, rec, catalog, index)
     end,
   })
   input:set(model.search)
-  status = page:text("")
+  status = sentence(page, "", MUTED)
+  if waiting then
+    self.current.progress = function(percent)
+      status:set(statusLine(percent))
+    end
+  end
   if #visible == 0 then
-    page:text("No recipes discovered yet in this world.")
-    page:text("Set the filters of a cauldron,")
-    page:text("or use recipes.unlock <item> in the console.")
+    sentence(
+      page,
+      "No recipes discovered yet in this world. Set the filters of a cauldron, "
+        .. "or use recipes.unlock <item> in the console."
+    )
   end
   if rec:anyUnlocked() then
-    self:indexLine(page, index)
+    failedLine(page, index)
   end
   grid = page:grid()
   fill()
 end
 
--- The recipes of the selected product, one page.
-function Ui:buildRecipes(page, rec, catalog, index)
-  local model = self.model
-  local product, mode = model.selected, model.mode
+-- Enables or disables a button. A failure is logged and the button stays as it is.
+function Ui:setEnabled(button, on)
+  local ok, problem = pcall(button.enable, button, on)
+  if not ok then
+    self.deps.log("could not enable or disable a button: " .. tostring(problem))
+  end
+end
 
+-- The two lists behind a product's recipes: the discovered ones in the order to show them, and the index's.
+local function recipeLists(rec, catalog, index, mode, product)
   local discovered = {}
   if rec:discoveredVisible(product) then
     for _, entry in ipairs(rec:discoveredFor(mode, product)) do
@@ -211,34 +257,64 @@ function Ui:buildRecipes(page, rec, catalog, index)
   if rec:otherVisible(product) then
     indexed = index:recipes(mode, product)
   end
+  return discovered, indexed
+end
+
+-- The recipes of the selected product, one page.
+function Ui:buildRecipes(page, rec, catalog, index)
+  local model = self.model
+  local product, mode = model.selected, model.mode
+
+  local discovered, indexed = recipeLists(rec, catalog, index, mode, product)
   local result = listing.page(discovered, indexed, model.pageIndex, PAGE_SIZE)
   model.pageIndex = result.page
+  local counts = listing.counts(discovered, indexed)
+  local waiting = finding(index)
 
-  -- Two short rows: the panel is narrow, and a row that is too wide runs off its edge.
+  -- A row holds about three buttons: more would run past the panel's edge.
   local top = page:row()
   top:button("Back", function()
     model.view = "grid"
     self:refresh()
   end)
+  top:item(product, 1)
+  sentence(page, catalog.display(product), GOLD)
+
   local nav = page:row()
-  nav:button("Previous", function()
+  local previous = nav:button("<", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
       self:refresh()
     end
   end)
-  nav:text(string.format(" page %d of %d ", result.page, result.pages))
-  nav:button("Next", function()
+  nav:text(string.format(" Page %d of %d ", result.page, result.pages))
+  local following = nav:button(">", function()
     if model.pageIndex < result.pages then
       model.pageIndex = model.pageIndex + 1
       self:refresh()
     end
   end)
+  self:setEnabled(previous, result.page > 1)
+  -- While recipes are still being found, a page that does not exist yet is not offered.
+  self:setEnabled(following, result.page < result.pages)
 
-  page:text(string.format("%s: %s recipes", catalog.display(product), MODE_LABEL[mode]))
-  self:indexLine(page, index)
+  local function statusLine(percent)
+    return statusText(MODE_LABEL[mode] .. ", " .. plural(result.total, "recipe"), waiting and percent or nil)
+  end
+  local status = sentence(page, statusLine(index:progress()), MUTED)
+  if waiting then
+    self.current.progress = function(percent)
+      status:set(statusLine(percent))
+    end
+    self.current.pages = result.pages
+    self.current.recount = function()
+      local now, later = recipeLists(rec, catalog, index, mode, product)
+      return listing.page(now, later, 1, PAGE_SIZE).pages
+    end
+  end
+  failedLine(page, index)
   if result.total == 0 then
-    page:text("No recipes to show for this item yet.")
+    sentence(page, "No recipes to show for this item yet.")
   end
 
   local list = page:list()
@@ -247,7 +323,13 @@ function Ui:buildRecipes(page, rec, catalog, index)
     local wanted = item.discovered and "Discovered" or "Other recipes"
     if wanted ~= heading then
       heading = wanted
-      list:row():text(heading)
+      if item.discovered then
+        local text = list:row():text(string.format("Discovered (%d)", counts.discovered))
+        text:color(GOLD[1], GOLD[2], GOLD[3])
+      else
+        local suffix = waiting and " so far" or ""
+        list:row():text(string.format("Other recipes (%d%s)", counts.other, suffix))
+      end
     end
     local row = list:row()
     local first, second, third = indexModule.unpack(item.packed)
@@ -258,8 +340,6 @@ function Ui:buildRecipes(page, rec, catalog, index)
       end
       row:item(catalog.ingredients[position], 1)
     end
-    row:text(" = ")
-    row:item(product, 1)
   end
 end
 
