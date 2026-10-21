@@ -1,0 +1,81 @@
+-- Cauldron Recipes: entrypoint. Adds the Cauldron Recipes tab and the recipes.* console commands, using only the
+-- public calls of the AF Mod Loader API. See the README for what it changes.
+local api = AF.require("af-modloader-api").use(AF)
+local commands = require("commands")
+local discover = require("discover")
+local session = require("session")
+local store = require("store")
+local uiPage = require("ui_page")
+
+local VERSION = "0.1.0"
+
+-- The real file functions for the store (Lua's io and os, as the loader documents for AF.dataDir).
+local files = {
+  read = function(path)
+    local file = io.open(path, "rb")
+    if not file then
+      return nil
+    end
+    local content = file:read("a")
+    file:close()
+    return content
+  end,
+  write = function(path, content)
+    local file, problem = io.open(path, "wb")
+    if not file then
+      return nil, problem
+    end
+    local ok, writeProblem = file:write(content)
+    file:close()
+    if not ok then
+      return nil, writeProblem
+    end
+    return true
+  end,
+  remove = os.remove,
+  rename = os.rename,
+}
+
+local recordStore = store.new({ dir = AF.dataDir, files = files, json = AF.json, log = AF.log })
+
+local ui, discoverer
+local current = session.new({
+  api = api,
+  log = AF.log,
+  store = recordStore,
+  onReady = function(world)
+    discoverer:install()
+    discoverer:scanSoon(world)
+  end,
+  onRefresh = function()
+    ui:refresh()
+  end,
+  onProgress = function(percent)
+    ui:onProgress(percent)
+  end,
+})
+discoverer = discover.new({
+  api = api,
+  log = AF.log,
+  session = current,
+  later = session.later,
+  onChange = function()
+    ui:refresh()
+  end,
+})
+ui = uiPage.new({ api = api, log = AF.log, session = current, discover = discoverer })
+
+ui:install()
+commands.install({
+  api = api,
+  session = current,
+  onChange = function()
+    ui:refresh()
+  end,
+})
+api.world.onEnter(function(world)
+  current:enter(world)
+end)
+discoverer:install()
+
+AF.log("Cauldron Recipes " .. VERSION .. " loaded")
