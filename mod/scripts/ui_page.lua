@@ -39,13 +39,20 @@ function Ui:install()
     title = "Cauldron Recipes",
     build = function(page)
       self.building = true
-      local ok, problem = pcall(self.build, self, page)
+      local ok, problem = xpcall(self.build, debug.traceback, self, page)
       self.building = false
       if not ok then
         error(problem, 0)
       end
     end,
   })
+end
+
+-- A world was entered: nothing from the page of the previous world is touched any more.
+function Ui:reset()
+  self.current = {}
+  self.model = nil
+  self.generation = nil
 end
 
 -- Builds the page again, unless it is being built right now (then it already shows the latest data).
