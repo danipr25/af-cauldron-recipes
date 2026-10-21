@@ -166,6 +166,17 @@ function Store:save(key, rec)
     self.log("could not save the recipes to " .. temporary .. " (" .. tostring(problem) .. ")")
     return false
   end
+  -- Read the copy back before the old file goes away: a copy that does not parse must never replace it.
+  local copy = self.files.read(temporary)
+  if copy == nil or not pcall(self.json.decode, copy) then
+    self.log(
+      "the new recipe file "
+        .. temporary
+        .. " could not be read back, so the old file was left as it is and the recipes were not saved"
+    )
+    self.files.remove(temporary)
+    return false
+  end
   local removed, removeProblem = self.files.remove(path)
   -- A file that was not there is fine; one that is still there means the old record cannot be replaced.
   if not removed and self.files.read(path) ~= nil then

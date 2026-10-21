@@ -182,6 +182,20 @@ return {
       lu.assertStrContains(f.logs[#f.logs], "could not replace")
     end,
 
+    testACopyThatDoesNotReadBackNeverReplacesTheFile = function()
+      local f = fixture()
+      f.store:save("W_1", sample())
+      local before = f.disk[FILE]
+      f.store.files.write = function(path, _)
+        f.disk[path] = "cut short" -- the disk lost part of the data
+        return true
+      end
+      lu.assertFalse(f.store:save("W_1", sample()))
+      lu.assertEquals(f.disk[FILE], before)
+      lu.assertNil(f.disk[FILE .. ".tmp"])
+      lu.assertStrContains(f.logs[#f.logs], "could not be read back")
+    end,
+
     testAMissingOldFileIsNotAnError = function()
       local f = fixture()
       f.store.files.remove = function()

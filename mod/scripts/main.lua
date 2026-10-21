@@ -26,9 +26,12 @@ local files = {
       return nil, problem
     end
     local ok, writeProblem = file:write(content)
-    file:close()
+    local closed, closeProblem = file:close()
     if not ok then
       return nil, writeProblem
+    end
+    if not closed then
+      return nil, closeProblem
     end
     return true
   end,
@@ -59,6 +62,9 @@ discoverer = discover.new({
   log = AF.log,
   session = current,
   later = session.later,
+  onFirstScan = function(world)
+    current:afterFirstScan(world)
+  end,
   onChange = function()
     ui:refresh()
   end,
@@ -74,6 +80,7 @@ commands.install({
   end,
 })
 api.world.onEnter(function(world)
+  ui:reset()
   current:enter(world)
 end)
 discoverer:install()
