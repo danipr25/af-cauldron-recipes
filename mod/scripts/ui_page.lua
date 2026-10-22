@@ -198,7 +198,9 @@ function Ui:buildGrid(page, rec, catalog, index)
         })
       end
     end
-    status:set(statusLine(index:progress()))
+    if status then
+      status:set(statusLine(index:progress()))
+    end
   end
 
   local input = page:input({
@@ -209,10 +211,13 @@ function Ui:buildGrid(page, rec, catalog, index)
     end,
   })
   input:set(model.search)
-  status = sentence(page, "", MUTED)
-  if waiting then
-    self.current.onProgress = function(percent)
-      status:set(statusLine(percent))
+  -- The line exists only when it has something to say: an empty one would leave a gap above the grid.
+  if #visible > 0 or waiting then
+    status = sentence(page, "", MUTED)
+    if waiting then
+      self.current.onProgress = function(percent)
+        status:set(statusLine(percent))
+      end
     end
   end
   if #visible == 0 and not waiting then
@@ -270,22 +275,17 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local waiting = rec:otherVisible(product) and finding(index)
 
   -- A row holds about three buttons: more would run past the panel's edge.
-  local top = page:row()
-  top:button("Back", function()
+  local nav = page:row()
+  nav:button("Back", function()
     model.view = "grid"
     self:refresh()
   end)
-  top:item(product, 1)
-  sentence(page, catalog.display(product), GOLD)
-
-  local nav = page:row()
   local previous = nav:button("<", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
       self:refresh()
     end
   end)
-  local pageText = nav:text(string.format(" Page %d of %d ", result.page, result.pages))
   local following = nav:button(">", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
     self:refresh()
@@ -294,10 +294,18 @@ function Ui:buildRecipes(page, rec, catalog, index)
   -- While recipes are still being found, a page that does not exist yet is not offered.
   self:setEnabled(following, result.page < result.pages)
 
-  local function statusLine(total, percent)
-    return statusText(MODE_LABEL[mode] .. ", " .. plural(total, "recipe"), waiting and percent or nil)
+  page:row():item(product, 1)
+  sentence(page, catalog.display(product), GOLD)
+
+  -- The page only shows once there is more than one.
+  local function statusLine(total, pages, percent)
+    local base = MODE_LABEL[mode] .. ", " .. plural(total, "recipe")
+    if pages > 1 then
+      base = string.format("%s, page %d of %d", base, result.page, pages)
+    end
+    return statusText(base, waiting and percent or nil)
   end
-  local status = sentence(page, statusLine(result.total, index:progress()), MUTED)
+  local status = sentence(page, statusLine(result.total, result.pages, index:progress()), MUTED)
   if waiting then
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
@@ -308,10 +316,9 @@ function Ui:buildRecipes(page, rec, catalog, index)
     local shownPages = result.pages
     self.current.onProgress = function(percent)
       local pages, total = live()
-      status:set(statusLine(total, percent))
+      status:set(statusLine(total, pages, percent))
       if pages > shownPages then
         shownPages = pages
-        pageText:set(string.format(" Page %d of %d ", result.page, pages))
         self:setEnabled(following, result.page < pages)
       end
     end
@@ -334,7 +341,8 @@ function Ui:buildRecipes(page, rec, catalog, index)
         text:color(GOLD[1], GOLD[2], GOLD[3])
       else
         local suffix = waiting and " so far" or ""
-        list:row():text(string.format("Other recipes (%d%s)", counts.other, suffix))
+        local text = list:row():text(string.format("Other recipes (%d%s)", counts.other, suffix))
+        text:color(MUTED[1], MUTED[2], MUTED[3])
       end
     end
     local row = list:row()
