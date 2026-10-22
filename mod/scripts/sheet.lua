@@ -57,7 +57,7 @@ function sheet.usedIn(rec, catalog, index, item)
   end
   local total = 0
   for product, count in pairs(index:usedIn(position)) do
-    if rec:otherVisible(product) then
+    if catalog.productSet[product] and rec:otherVisible(product) then
       total = total + count
     end
   end
