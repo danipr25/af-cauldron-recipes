@@ -132,8 +132,9 @@ function Session:adopt(fresh)
   )
   log(
     string.format(
-      "IsLiquid: %d item(s) are liquids, not ingredients (%s), %d could not be read",
+      "IsLiquid: %d item(s) are liquids, %s (%s), %d could not be read",
       #fresh.liquids,
+      fresh.liquidsExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_LIQUIDS is off)",
       table.concat(fresh.liquids, ", "),
       fresh.liquidUnreadable
     )
@@ -201,7 +202,7 @@ function Session:validateRecord()
   if unknown > 0 then
     self.deps.log(
       string.format(
-        "%d saved recipe(s) use items that are not cauldron ingredients in this version of the game: "
+        "%d saved recipe(s) use items that are not cauldron ingredients or products in this version of the game: "
           .. "kept, but not shown",
         unknown
       )

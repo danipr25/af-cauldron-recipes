@@ -1,7 +1,7 @@
 -- What the game says about cauldron items, read at runtime: the ingredients (rows with a cauldron cost that are not
 -- liquids) and products from the item table, the localized names, and the game's own answer for any combination.
--- Game-facing: checked in game, see docs/game-data.md for the calls and how they were verified. No recipe rule is
--- written here.
+-- Game-facing: checked in game except the flags marked below, see docs/game-data.md for the calls and how they
+-- were verified. No recipe rule is written here.
 local catalog = {}
 
 -- Unverified in game: the table row has a `bHideInGame` flag (header dump). When true, items the game hides are left
@@ -168,6 +168,7 @@ function catalog.load(log)
   self.key = #self.items .. ":" .. #self.ingredients .. ":" .. tostring(first) .. ":" .. tostring(last)
   self.hiddenInGame = hiddenSeen
   self.hiddenUnreadable = unreadable
+  self.liquidsExcluded = EXCLUDE_LIQUIDS
   self.liquids = liquids
   self.liquidUnreadable = liquidUnreadable
   self.liquidProducts = liquidProducts
