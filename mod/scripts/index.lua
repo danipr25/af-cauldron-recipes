@@ -18,6 +18,24 @@ function index.pack(i, j, k)
   return (list[1] or 0) * 65536 + (list[2] or 0) * 256 + (list[3] or 0)
 end
 
+-- Counts one recipe for each distinct ingredient position it uses: used[position][product] = number of recipes of
+-- that product that use the position. A recipe that uses an ingredient twice counts once for it. Positions may come
+-- in any order and k may be nil.
+function index.addUsage(used, product, i, j, k)
+  local seen = {}
+  for _, position in ipairs({ i, j, k or i }) do
+    if not seen[position] then
+      seen[position] = true
+      local byProduct = used[position]
+      if not byProduct then
+        byProduct = {}
+        used[position] = byProduct
+      end
+      byProduct[product] = (byProduct[product] or 0) + 1
+    end
+  end
+end
+
 -- The positions of a stored number: i, j and k (k is nil for two ingredients).
 function index.unpack(packed)
   local k = packed % 256
@@ -47,6 +65,7 @@ function index.new(options)
   self.onDone = options.onDone or function() end
   self.onFail = options.onFail or function() end
   self.byMode = { normal = {}, advanced = {} }
+  self.used = {} -- see index.addUsage
   self.cursor = { mode = "advanced", i = 1, j = 1, k = 1 }
   local n = self.count
   self.total = n * (n + 1) // 2 + n * (n + 1) * (n + 2) // 6
@@ -135,6 +154,12 @@ function Index:recipes(mode, product)
   return self.byMode[mode][product]
 end
 
+-- For an ingredient position: { [product] = how many recipes of that product use it }, from both modes. Complete only
+-- when isDone(). The table belongs to the index: do not change it.
+function Index:usedIn(position)
+  return self.used[position] or {}
+end
+
 -- Moves to the next combination. Returns false when there is none left.
 function Index:step(oracle)
   local c = self.cursor
@@ -149,6 +174,7 @@ function Index:step(oracle)
         self.byMode.advanced[product] = list
       end
       list[#list + 1] = c.i * 65536 + c.j * 256
+      index.addUsage(self.used, product, c.i, c.j, nil)
     end
     c.j = c.j + 1
     if c.j > n then
@@ -167,6 +193,7 @@ function Index:step(oracle)
         self.byMode.normal[product] = list
       end
       list[#list + 1] = c.i * 65536 + c.j * 256 + c.k
+      index.addUsage(self.used, product, c.i, c.j, c.k)
     end
     c.k = c.k + 1
     if c.k > n then

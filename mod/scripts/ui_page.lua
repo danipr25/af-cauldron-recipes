@@ -1,6 +1,6 @@
--- The Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
--- player clicks, in pages (small buttons, arrows and status lines keep it compact). Game-facing through the
--- AF Mod Loader API's page widgets: checked in game.
+-- The Recipes tab (in the V menu, the item catalog): a mode button, a search box, a grid of products, and the
+-- recipes of the product the player clicks, in pages (small buttons, arrows and status lines keep it compact).
+-- Game-facing through the AF Mod Loader API's page widgets: checked in game in the TAB menu, not yet in the V menu.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
@@ -86,11 +86,12 @@ local function freshModel()
   return { mode = "normal", view = "grid", search = "", selected = nil, pageIndex = 1, filter = {}, pickSearch = "" }
 end
 
--- Adds the tab. Call it while the mod's entrypoint runs.
+-- Adds the tab to the V menu. Call it while the mod's entrypoint runs.
 function Ui:install()
   self.tab = self.deps.api.tabs.add({
     id = "recipes",
     title = "Recipes",
+    menu = "catalog",
     build = function(page)
       self.building = true
       local ok, problem = xpcall(self.build, debug.traceback, self, page)
@@ -101,6 +102,29 @@ function Ui:install()
       end
     end,
   })
+end
+
+-- Shows the recipes of a product in a mode (the mode buttons on the item sheet): sets the page's model, rebuilds
+-- the page and selects the tab. Does nothing when no world is loaded. Unverified in game: tab:select().
+function Ui:showProduct(product, mode)
+  local world = self.deps.session:current()
+  if not world then
+    return
+  end
+  if self.generation ~= world.generation or not self.model then
+    self.generation = world.generation
+    self.model = freshModel()
+  end
+  local model = self.model
+  model.mode = mode
+  model.selected = product
+  model.view = "recipes"
+  model.pageIndex = 1
+  model.filter = {} -- a filter belongs to one product in one mode
+  self:refresh()
+  if self.tab then
+    self.tab:select()
+  end
 end
 
 -- A world was entered: nothing from the page of the previous world is touched any more.
@@ -255,29 +279,7 @@ function Ui:setEnabled(button, on)
   end
 end
 
--- The two lists behind a product's recipes: the discovered ones in the order to show them, and the index's.
-local function recipeLists(rec, catalog, index, mode, product)
-  local discovered = {}
-  if rec:discoveredVisible(product) then
-    for _, entry in ipairs(rec:discoveredFor(mode, product)) do
-      local positions, known = {}, true
-      for place, name in ipairs(entry.inputs) do
-        positions[place] = catalog.ingredientIndex[name]
-        if positions[place] == nil then
-          known = false
-        end
-      end
-      if known then -- an input that is not an ingredient now (gone, or a liquid) is skipped
-        discovered[#discovered + 1] = indexModule.pack(positions[1], positions[2], positions[3])
-      end
-    end
-  end
-  local indexed = nil
-  if rec:otherVisible(product) then
-    indexed = index:recipes(mode, product)
-  end
-  return discovered, indexed
-end
+local recipeLists = listing.recipeLists
 
 -- The lists as the page shows them: the filter applied to both. The third value is the number of recipes before the
 -- filter, or nil when no ingredient is chosen.

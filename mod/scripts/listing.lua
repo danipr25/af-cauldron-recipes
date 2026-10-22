@@ -1,6 +1,34 @@
 -- The recipes of one product as pages: discovered recipes first, then the rest of the index, with no recipe
 -- twice. Pure Lua (tests/test_listing.lua). Recipes are the whole numbers made by index.pack.
+local indexModule = require("index")
+
 local listing = {}
+
+-- The two lists behind a product's recipes in one mode, with the player's visibility settings applied: the
+-- discovered ones in the order to show them, and the index's (nil while there is none, or when the other recipes of
+-- the product are not shown). rec is a record, catalog the item catalog, index the recipe index.
+function listing.recipeLists(rec, catalog, index, mode, product)
+  local discovered = {}
+  if rec:discoveredVisible(product) then
+    for _, entry in ipairs(rec:discoveredFor(mode, product)) do
+      local positions, known = {}, true
+      for place, name in ipairs(entry.inputs) do
+        positions[place] = catalog.ingredientIndex[name]
+        if positions[place] == nil then
+          known = false
+        end
+      end
+      if known then -- an input that is not an ingredient now (gone, or a liquid) is skipped
+        discovered[#discovered + 1] = indexModule.pack(positions[1], positions[2], positions[3])
+      end
+    end
+  end
+  local indexed = nil
+  if rec:otherVisible(product) then
+    indexed = index:recipes(mode, product)
+  end
+  return discovered, indexed
+end
 
 -- How many recipes there are under each heading across every page: { discovered, other }. A recipe that is in both
 -- lists counts as discovered only. Same arguments as listing.page.

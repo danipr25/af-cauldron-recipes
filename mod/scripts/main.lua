@@ -1,9 +1,11 @@
--- Cauldron Recipes: entrypoint. Adds the Recipes tab and the recipes.* console commands, using only the
--- public calls of the AF Mod Loader API. See the README for what it changes.
+-- Cauldron Recipes: entrypoint. Adds the Recipes tab to the V menu (item catalog), a Cauldron section to its item
+-- sheet and the recipes.* console commands, using only the public calls of the AF Mod Loader API. See the README for
+-- what it changes.
 local api = AF.require("af-modloader-api").use(AF)
 local commands = require("commands")
 local discover = require("discover")
 local session = require("session")
+local sheet = require("sheet")
 local store = require("store")
 local uiPage = require("ui_page")
 
@@ -72,6 +74,7 @@ discoverer = discover.new({
 ui = uiPage.new({ api = api, log = AF.log, session = current, discover = discoverer })
 
 ui:install()
+sheet.new({ api = api, log = AF.log, session = current, ui = ui }):install()
 commands.install({
   api = api,
   session = current,
