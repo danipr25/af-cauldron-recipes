@@ -80,13 +80,13 @@ local row = dt:FindRow("Gentian")         -- row.CauldronCost == 400.0, row.Caul
 dt:ForEachRow(function(name, row) ... end) -- every row, in the table's order
 ```
 
-The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items a cauldron takes) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. Some of the 170 are hidden in game (`bHideInGame`): which ones a player can actually put in a cauldron is not checked.
+The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items a cauldron takes) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. Some of the 170 are hidden in game (`bHideInGame`): which ones a player can actually put in a cauldron is not checked. The 170 include liquids, which a cauldron does not take (seen by the user in game). The mod skips rows with `IsLiquid` set (`EXCLUDE_LIQUIDS = true` in `catalog.lua`), so the ingredient count is lower than 170. This ships on ahead of the in-game check, a deliberate exception to AGENTS.md section 6; the log lists the liquids and every ingredient. The web calculator (game 1.0) excludes liquids too. Result of the in-game check: pending (game version, date and how it was checked go here).
 
 `UDataTableFunctionLibrary:GetDataTableColumnAsString` exists as a fallback; it was not needed and is not tested.
 
 ### The game's own answer: `GetCauldronProduct`
 
-- It is fast: 28,900 calls (every ordered pair of the 170 ingredients) took 284 ms in Lua.
+- It is fast: 28,900 calls (every ordered pair of the 170 ingredients, liquids included) took 284 ms in Lua.
 - It never returned `None` and never raised for any of 34,900 combinations.
 - The order of the ingredients does not matter: every pair gave the same product in both orders. A real Advanced cauldron also gave the same product whichever slot each ingredient was in (checked by the user).
 - It matches a real cauldron on a case where the rules below changed since game 1.0: Flax Seeds (`FlaxSeed`) + Impure Copper Powder (`CopperPowder`) gives Coke, both from `GetCauldronProduct` and in a real Advanced cauldron (checked by the user on 2026-10-21). The web calculator recorded Coal for this on game 1.0.
@@ -130,6 +130,7 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 
 Each of these ships disabled or marked, as AGENTS.md section 6 asks.
 
+- `IsLiquid` on the item rows (`FBeltTDEnemyConfig`, header dump): that reading it works and that it matches the items a cauldron refuses is not verified. The mod logs the liquids and any liquid product (`EXCLUDE_LIQUIDS` in `catalog.lua`).
 - `bHideInGame` on the item rows (`FBeltTDEnemyConfig`, header dump): what it means for cauldron ingredients and products is unknown. The mod logs the items that have it set and reads it only to log (`EXCLUDE_HIDDEN = false` in `catalog.lua`).
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
