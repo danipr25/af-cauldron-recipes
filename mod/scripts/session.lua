@@ -124,12 +124,38 @@ function Session:adopt(fresh)
   )
   log(
     string.format(
-      "bHideInGame: %d item(s) have it set (%s), %d could not be read",
+      "bHideInGame: %d item(s) have it set, %s (%s), %d could not be read",
       #fresh.hiddenInGame,
+      fresh.hiddenExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_HIDDEN is off)",
       table.concat(fresh.hiddenInGame, ", "),
       fresh.hiddenUnreadable
     )
   )
+  log(
+    string.format(
+      "IsLiquid: %d item(s) are liquids, %s (%s), %d could not be read",
+      #fresh.liquids,
+      fresh.liquidsExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_LIQUIDS is off)",
+      table.concat(fresh.liquids, ", "),
+      fresh.liquidUnreadable
+    )
+  )
+  log(
+    string.format(
+      "SellType Liquid: %d item(s) are drinks, %s (%s), %d could not be read",
+      #fresh.drinks,
+      fresh.liquidsExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_LIQUIDS is off)",
+      table.concat(fresh.drinks, ", "),
+      fresh.drinkUnreadable
+    )
+  )
+  if #fresh.hiddenProductRows > 0 then
+    log("bHideInGame products (left out of the products): " .. table.concat(fresh.hiddenProductRows, ", "))
+  end
+  if #fresh.liquidProducts > 0 then
+    log("IsLiquid products: " .. table.concat(fresh.liquidProducts, ", "))
+  end
+  log("ingredients: " .. table.concat(fresh.ingredients, ", "))
   self:newIndex()
 end
 
@@ -188,7 +214,11 @@ function Session:validateRecord()
   end)
   if unknown > 0 then
     self.deps.log(
-      string.format("%d saved recipe(s) use items this version of the game does not have: kept, but not shown", unknown)
+      string.format(
+        "%d saved recipe(s) use items that are not cauldron ingredients or products in this version of the game: "
+          .. "kept, but not shown",
+        unknown
+      )
     )
   end
   if changed then

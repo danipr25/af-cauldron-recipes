@@ -80,13 +80,19 @@ local row = dt:FindRow("Gentian")         -- row.CauldronCost == 400.0, row.Caul
 dt:ForEachRow(function(name, row) ... end) -- every row, in the table's order
 ```
 
-The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items a cauldron takes) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. Some of the 170 are hidden in game (`bHideInGame`): which ones a player can actually put in a cauldron is not checked.
+The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items with a cauldron cost) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. The 170 include things a cauldron does not take, so the mod leaves out of the ingredients:
+
+- Liquids: rows with `IsLiquid` set (`EXCLUDE_LIQUIDS = true` in `catalog.lua`). Read on 1.1.5024 (UE4SS log, 2026-10-22): `IsLiquid` was read on every row, 13 liquids were excluded, 158 ingredients remained, and the index of 682,481 combinations took 6.9 s.
+- Drinks: rows whose `SellType` is `EEnemySellType::Liquid` (value 6, `BeltTD_enums.hpp`), under the same switch. Whispering Fields, Strange Tide, Lavender Dream, World Tree Vintage and Alchemist's Sigh are liquids that cannot be moved (they are crafted where they are sold), and a cauldron cannot take them (checked by the user in game 1.1.5024, 2026-10-22). In the game 1.0 export (`DT_Enemies`) exactly those five rows have `SellType = EEnemySellType::Liquid` and `IsLiquid = false`. The DataTable binding returns the enum as a number: read in game 1.1.5024 (UE4SS log, 2026-10-22 22:10), 5 drinks (WhisperingFields, StrangeTide, LavenderDream, WorldTreeVintage, AlchemistSigh), 0 unreadable. The mod accepts a number, and logs the raw type and value (or the read error) once per world entry if it is not one.
+- Hidden items: rows with `bHideInGame` set (`EXCLUDE_HIDDEN = true`). Hidden items are never usable (checked by the user in game 1.1.5024, 2026-10-22). A hidden row is skipped before the product check, so the mod logs any hidden row with `CauldronMulti > 0` (none expected). It is also skipped before the `IsLiquid` and `SellType` reads, so with this on the `IsLiquid` log line counts 12 liquids, not 13: `WoodAcid` is hidden and a liquid (game 1.0 export). Read on 1.1.5024 (UE4SS log, 2026-10-22 22:10) with all three rules: 180 rows, 139 cauldron ingredients, 47 products, `bHideInGame` on 24 rows (0 unreadable), `IsLiquid` on 12 liquids (0 unreadable), and the index of 467,040 combinations took 4.9 s of game time (it was 682,481 in 6.9 s with 158 ingredients, before the hidden rule).
+
+Automatic Cashier (`CashRegister`) can be set in a cauldron's filter (seen in the cauldron's Select list), so it stays an ingredient. The web calculator (game 1.0) excludes liquids too. The ingredient count with all three rules is 139 (the log above). In game 1.1.5024 (2026-10-22) no liquid, drink or hidden item appears in Other recipes or in the + Add grid.
 
 `UDataTableFunctionLibrary:GetDataTableColumnAsString` exists as a fallback; it was not needed and is not tested.
 
 ### The game's own answer: `GetCauldronProduct`
 
-- It is fast: 28,900 calls (every ordered pair of the 170 ingredients) took 284 ms in Lua.
+- It is fast: 28,900 calls (every ordered pair of the 170 ingredients, liquids included) took 284 ms in Lua.
 - It never returned `None` and never raised for any of 34,900 combinations.
 - The order of the ingredients does not matter: every pair gave the same product in both orders. A real Advanced cauldron also gave the same product whichever slot each ingredient was in (checked by the user).
 - It matches a real cauldron on a case where the rules below changed since game 1.0: Flax Seeds (`FlaxSeed`) + Impure Copper Powder (`CopperPowder`) gives Coke, both from `GetCauldronProduct` and in a real Advanced cauldron (checked by the user on 2026-10-21). The web calculator recorded Coal for this on game 1.0.
@@ -126,13 +132,23 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 
 - The game state holds the DataTables `EnemyConfig` and `EnemyCraftingConfig`, the source of the cauldron values (`CauldronCost`, `CauldronTarget`, `CauldronMulti` in `DT_Enemies`).
 
-## Not verified yet (the in-game test of version 0.1.0 checks these)
+## Verified in game 1.1.5024 (2026-10-22)
+
+With API 0.1.5 then 0.1.6.
+
+- Ingredient rules: no liquid, drink or hidden item in Other recipes or in the + Add grid (counts in the section above).
+- Ingredient filter of the recipes page: the Filter row (small text, clickable ingredient tiles, small + Add and Clear) fits; the + Add grid of ingredients with search works, with icons and clicks; adding an ingredient narrows the list, the status reads "F of N" and the page goes to 1; the same ingredient twice works; Clear works; + Add hides when the slots are full; Back keeps the filter; another product starts without a filter.
+- Clicking an ingredient in the filter row removes just that one; a right click removes it too; a double click does not remove two.
+- Compact layout of round 3: the Back button, the arrows and the P / M row, the tile, the gold name, the small cream status and the centered "+" look right.
+- Page rebuilds on page steps and filter changes were not noticeable.
+
+## Not verified yet
 
 Each of these ships disabled or marked, as AGENTS.md section 6 asks.
 
-- `bHideInGame` on the item rows (`FBeltTDEnemyConfig`, header dump): what it means for cauldron ingredients and products is unknown. The mod logs the items that have it set and reads it only to log (`EXCLUDE_HIDDEN = false` in `catalog.lua`).
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.
 - How the page lays out a nav row above a list that fills the rest of the page, and `finding recipes N%` updating while the index is built.
-- A gold `Discovered (n)` heading on a list row (color on list texts), a disabled Next arrow turning on when the page count grows while recipes are found, `enable(true)` on the Next arrow from a progress callback, "page / pages" next to the arrows updating as pages appear, the small muted status line (mode, recipes, percent) updating in place, the small Back button, the arrows and "page / pages" fitting in one row, the small text starting at the left edge, the arrow picture's size (a guess), the rows centering their tiles and "+" signs (API 0.1.5), and whether the cream status color (0.88, 0.82, 0.70) is readable on the panel.
+- A gold `Discovered (n)` heading on a list row (color on list texts), a disabled Next arrow turning on when the page count grows while recipes are found, `enable(true)` on the Next arrow from a progress callback, "page / pages" next to the arrows updating as pages appear, and the small muted status line (mode, recipes, percent) updating in place.
+- The list, page count and status line following the filter while recipes are still being found (not reported in the in-game check).
