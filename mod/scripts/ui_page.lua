@@ -1,5 +1,6 @@
 -- The Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
--- player clicks, in pages. Game-facing through the AF Mod Loader API's page widgets: checked in game.
+-- player clicks, in pages (small buttons, arrows and status lines keep it compact). Game-facing through the
+-- AF Mod Loader API's page widgets: checked in game.
 local indexModule = require("index")
 local listing = require("listing")
 local names = require("names")
@@ -29,6 +30,13 @@ local function sentence(page, text, color)
   if color then
     handle:color(color[1], color[2], color[3])
   end
+  return handle
+end
+
+-- A short muted status line in small text (a small text cannot wrap). Returns the text handle.
+local function smallLine(page, text)
+  local handle = page:text(text, { size = "small" })
+  handle:color(MUTED[1], MUTED[2], MUTED[3])
   return handle
 end
 
@@ -161,7 +169,7 @@ function Ui:buildGrid(page, rec, catalog, index)
   top:button(SWITCH_LABEL[model.mode], function()
     model.mode = OTHER_MODE[model.mode]
     self:refresh()
-  end)
+  end, { small = true })
 
   local visible = {}
   for _, product in ipairs(catalog.products) do
@@ -213,7 +221,7 @@ function Ui:buildGrid(page, rec, catalog, index)
   input:set(model.search)
   -- The line exists only when it has something to say: an empty one would leave a gap above the grid.
   if #visible > 0 or waiting then
-    status = sentence(page, "", MUTED)
+    status = smallLine(page, "")
     if waiting then
       self.current.onProgress = function(percent)
         status:set(statusLine(percent))
@@ -274,19 +282,23 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local counts = listing.counts(discovered, indexed)
   local waiting = rec:otherVisible(product) and finding(index)
 
-  -- A row holds about three buttons: more would run past the panel's edge.
+  -- One compact row: Back, the page arrows and "page / pages".
   local nav = page:row()
   nav:button("Back", function()
     model.view = "grid"
     self:refresh()
-  end)
-  local previous = nav:button("Previous", function()
+  end, { small = true })
+  local previous = nav:arrow("previous", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
       self:refresh()
     end
   end)
-  local following = nav:button("Next", function()
+  local function pageLabel(pages)
+    return string.format("%d / %d", result.page, pages)
+  end
+  local pageText = nav:text(pageLabel(result.pages), { size = "small" })
+  local following = nav:arrow("next", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
     self:refresh()
   end)
@@ -297,15 +309,10 @@ function Ui:buildRecipes(page, rec, catalog, index)
   page:row():item(product, 1)
   sentence(page, catalog.display(product), GOLD)
 
-  -- The page only shows once there is more than one.
-  local function statusLine(total, pages, percent)
-    local base = MODE_LABEL[mode] .. ", " .. plural(total, "recipe")
-    if pages > 1 then
-      base = string.format("%s, page %d of %d", base, result.page, pages)
-    end
-    return statusText(base, waiting and percent or nil)
+  local function statusLine(total, percent)
+    return statusText(MODE_LABEL[mode] .. ", " .. plural(total, "recipe"), waiting and percent or nil)
   end
-  local status = sentence(page, statusLine(result.total, result.pages, index:progress()), MUTED)
+  local status = smallLine(page, statusLine(result.total, index:progress()))
   if waiting then
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
@@ -316,9 +323,10 @@ function Ui:buildRecipes(page, rec, catalog, index)
     local shownPages = result.pages
     self.current.onProgress = function(percent)
       local pages, total = live()
-      status:set(statusLine(total, pages, percent))
+      status:set(statusLine(total, percent))
       if pages > shownPages then
         shownPages = pages
+        pageText:set(pageLabel(pages))
         self:setEnabled(following, result.page < pages)
       end
     end
