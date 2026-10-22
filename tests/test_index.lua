@@ -84,6 +84,43 @@ return {
       lu.assertEquals(total, 30)
     end,
 
+    testUsageCountsEachRecipeOncePerDistinctIngredient = function()
+      -- { product, i, j, k, expected used table after adding it to an empty table }
+      local cases = {
+        { "A", 1, 2, 3, { [1] = { A = 1 }, [2] = { A = 1 }, [3] = { A = 1 } } },
+        { "A", 2, 2, 5, { [2] = { A = 1 }, [5] = { A = 1 } } }, -- the same ingredient twice counts once
+        { "A", 4, 4, 4, { [4] = { A = 1 } } },
+        { "A", 1, 3, nil, { [1] = { A = 1 }, [3] = { A = 1 } } }, -- two ingredients (Advanced)
+        { "A", 3, 3, nil, { [3] = { A = 1 } } },
+      }
+      for _, case in ipairs(cases) do
+        local used = {}
+        index.addUsage(used, case[1], case[2], case[3], case[4])
+        lu.assertEquals(used, case[5])
+      end
+      -- Over several recipes and both modes the counts add up per product, and a finished index agrees with a
+      -- count made from its own recipe lists.
+      local f = fixture(4)
+      f.index:start()
+      f.drain()
+      for position = 1, 4 do
+        local expected = {}
+        for _, mode in ipairs({ "advanced", "normal" }) do
+          for _, product in ipairs({ "P0", "P1", "P2" }) do
+            local name = product .. (mode == "advanced" and "a" or "n")
+            for _, packed in ipairs(f.index:recipes(mode, name) or {}) do
+              local i, j, k = index.unpack(packed)
+              if i == position or j == position or k == position then
+                expected[name] = (expected[name] or 0) + 1
+              end
+            end
+          end
+        end
+        lu.assertEquals(f.index:usedIn(position), expected)
+      end
+      lu.assertEquals(f.index:usedIn(99), {})
+    end,
+
     testWorkIsDoneInSmallChunksAndProgressReachesOneHundred = function()
       local f = fixture(6)
       f.index:start()
