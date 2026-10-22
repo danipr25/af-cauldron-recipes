@@ -2,7 +2,7 @@
 
 A mod for **Alchemy Factory** that adds a Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.6 or newer (0.1.x).
 
-Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game; the new tab layout is being tested. Behaviour that has not been verified in game is listed in `docs/game-data.md`.
+Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game, and so have the tab layout and the ingredient filter (game 1.1.5024, 2026-10-22). Behaviour that has not been verified in game is listed in `docs/game-data.md`.
 
 Unofficial fan project. Alchemy Factory belongs to its developers.
 
