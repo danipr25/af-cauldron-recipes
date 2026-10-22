@@ -302,8 +302,15 @@ function Ui:buildFilterRow(page, rec, catalog, index)
   local model = self.model
   local row = page:row()
   row:text("Filter:", { size = "small" })
-  for _, position in ipairs(model.filter) do
-    row:item(catalog.ingredients[position], 1)
+  for i, position in ipairs(model.filter) do
+    -- A click removes this one entry (the same ingredient twice loses one), then the list starts at page 1.
+    row:item(catalog.ingredients[position], 1, {
+      onClick = function()
+        table.remove(model.filter, i)
+        model.pageIndex = 1
+        self:refresh()
+      end,
+    })
   end
   if #model.filter < record.SLOTS[model.mode] and next(self:candidates(rec, catalog, index)) then
     row:button("+ Add", function()
