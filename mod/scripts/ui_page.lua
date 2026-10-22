@@ -306,6 +306,9 @@ function Ui:buildFilterRow(page, rec, catalog, index)
     -- A click removes this one entry (the same ingredient twice loses one), then the list starts at page 1.
     row:item(catalog.ingredients[position], 1, {
       onClick = function()
+        if model.filter[i] ~= position then
+          return -- the filter changed since this row was built
+        end
         table.remove(model.filter, i)
         model.pageIndex = 1
         self:refresh()
