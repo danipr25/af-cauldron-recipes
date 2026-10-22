@@ -104,12 +104,7 @@ function Ui:install()
   })
 end
 
--- The mode the page is in (Normal until the page has been built for this world).
-function Ui:currentMode()
-  return self.model and self.model.mode or "normal"
-end
-
--- Shows the recipes of a product in a mode (the Recipes button on the item sheet): sets the page's model, rebuilds
+-- Shows the recipes of a product in a mode (the mode buttons on the item sheet): sets the page's model, rebuilds
 -- the page and selects the tab. Does nothing when no world is loaded. Unverified in game: tab:select().
 function Ui:showProduct(product, mode)
   local world = self.deps.session:current()
