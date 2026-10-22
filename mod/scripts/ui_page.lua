@@ -260,11 +260,14 @@ local function recipeLists(rec, catalog, index, mode, product)
   local discovered = {}
   if rec:discoveredVisible(product) then
     for _, entry in ipairs(rec:discoveredFor(mode, product)) do
-      local positions = {}
+      local positions, known = {}, true
       for place, name in ipairs(entry.inputs) do
         positions[place] = catalog.ingredientIndex[name]
+        if positions[place] == nil then
+          known = false
+        end
       end
-      if #positions == #entry.inputs then -- an ingredient the game no longer lists is skipped
+      if known then -- an input that is not an ingredient now (gone, or a liquid) is skipped
         discovered[#discovered + 1] = indexModule.pack(positions[1], positions[2], positions[3])
       end
     end

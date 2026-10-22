@@ -130,6 +130,18 @@ function Session:adopt(fresh)
       fresh.hiddenUnreadable
     )
   )
+  log(
+    string.format(
+      "IsLiquid: %d item(s) are liquids, not ingredients (%s), %d could not be read",
+      #fresh.liquids,
+      table.concat(fresh.liquids, ", "),
+      fresh.liquidUnreadable
+    )
+  )
+  if #fresh.liquidProducts > 0 then
+    log("IsLiquid products: " .. table.concat(fresh.liquidProducts, ", "))
+  end
+  log("ingredients: " .. table.concat(fresh.ingredients, ", "))
   self:newIndex()
 end
 
@@ -188,7 +200,11 @@ function Session:validateRecord()
   end)
   if unknown > 0 then
     self.deps.log(
-      string.format("%d saved recipe(s) use items this version of the game does not have: kept, but not shown", unknown)
+      string.format(
+        "%d saved recipe(s) use items that are not cauldron ingredients in this version of the game: "
+          .. "kept, but not shown",
+        unknown
+      )
     )
   end
   if changed then
