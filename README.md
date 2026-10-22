@@ -1,19 +1,20 @@
 # Cauldron Recipes
 
-A mod for **Alchemy Factory** that adds a Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.6 or newer (0.1.x).
+A mod for **Alchemy Factory** that adds a Recipes tab to the V menu (the item catalog with Materials, Goods, Stats and Ledger): search, Normal and Advanced modes, and the recipes you have already discovered. It also adds a Cauldron section to the item sheet of that menu, and console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.7 or newer (0.1.x).
 
-Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game, and so have the tab layout and the ingredient filter (game 1.1.5024, 2026-10-22). Behaviour that has not been verified in game is listed in `docs/game-data.md`.
+Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game, and so have the tab layout and the ingredient filter (game 1.1.5024, 2026-10-22). The tab was verified in game in the TAB menu; its move to the V menu and the item sheet section have not been tested in game yet. Behaviour that has not been verified in game is listed in `docs/game-data.md`.
 
 Unofficial fan project. Alchemy Factory belongs to its developers.
 
 ## What you get
 
-- A **Recipes** tab next to Player, World and Recognition.
+- A **Recipes** tab in the V menu, after Materials, Goods, Stats and Ledger. (It is no longer in the TAB menu.)
   - The grid page shows which cauldron you are looking at (Normal or Advanced, in gold), a small button to switch to the other one, a search box and a short status line with the number of products. The search looks at the item names as the game shows them. It ignores the case of the letters A to Z only: other letters (accents, for example) must match exactly.
   - Below it, a grid of the products that have at least one visible recipe in that mode. Click one to see its recipes.
   - The recipes page has one row with a small Back button, a previous arrow, "page / pages" and a next arrow (20 recipes per page; an arrow is grey when there is no page in that direction), then the product and its name in gold. A small status line under them says, for example, "Normal cauldron, 12 recipes".
   - The list has a gold **Discovered (n)** heading for the recipes you have already set on one of your cauldrons, then **Other recipes (n)**. Each heading shows up on the pages that have recipes of its kind, and its number counts them across all pages. A recipe is a row of its ingredients with a + between them: the product is the one shown at the top.
   - **Filter by ingredient.** Under the status line, a row with "Filter:", the ingredients you picked, a small **+ Add** button and a small **Clear** button (shown only when an ingredient is picked). **+ Add** opens a page with a search box and a grid of the ingredients that appear in this product's recipes (the ones that match your filter so far); click one to add it and go back to the list. You can pick as many as the cauldron has slots (3 Normal, 2 Advanced), and the same ingredient twice keeps only recipes that use it twice. The list, its page count and the headings then show only the matching recipes, and the status line says, for example, "Normal cauldron, 12 of 300 recipes". Click an ingredient in the filter (with any mouse button) to remove just that one (a quick double click on two different ingredients may remove both). **Clear** removes every ingredient. The filter is not saved: opening another product or switching cauldron clears it.
+- A **Cauldron** section on the item sheet of the V menu (Materials and Goods), under "Used in Crafting". For an item a cauldron can make it says, for example, "Cauldron: 12 recipes (3 discovered)" with a small **Recipes** button that opens the Recipes tab on that item (in the mode you were in, or the other one if that has no recipes). For an item that can be an ingredient it says "Used in 40 cauldron recipes". It counts only what the Recipes tab would show you, so it gives nothing away that is still locked, and says "so far" while the recipes are still being found. An item with nothing to say shows nothing. The section updates when you click another item.
 - Recipes come from the game, never from a list in the mod: the mod asks the game which product each combination gives. Each time the game starts, the first world you load builds an index of every combination in the background, a few milliseconds per frame; the page shows "finding recipes" with a percentage until it is done (the grid shows it only once some product is unlocked), and "Other recipes" says "so far" until then. Finding them takes about a minute in the background and uses about 25 MB of Lua memory.
 
 ## Which recipes are shown
@@ -47,7 +48,7 @@ Without a loaded save the commands answer "Load a save first."
 
 ## What it changes
 
-- It adds a tab to the TAB menu and the `recipes.*` console commands.
+- It adds a tab and a section to the V menu (item catalog) and the `recipes.*` console commands. Both appear while the game runs, in memory.
 - It writes only to the game's `mods\.data` folder: one file per world, `af-cauldron-recipes-<world>.json`, next to its siblings `.json.tmp` (a copy being written) and `.broken-<time>.json` (a file the mod could not read, kept for you).
 - It never writes to your save, and it does not change any game data.
 - It uses no network.
