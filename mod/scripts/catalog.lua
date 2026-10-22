@@ -1,17 +1,19 @@
 -- What the game says about cauldron items, read at runtime: the ingredients (rows with a cauldron cost that are not
--- liquids) and products from the item table, the localized names, and the game's own answer for any combination.
--- Game-facing: checked in game except the flags marked below, see docs/game-data.md for the calls and how they
--- were verified. No recipe rule is written here.
+-- liquids, drinks or hidden) and products from the item table, the localized names, and the game's own answer for any
+-- combination. Game-facing: checked in game except the flags marked below, see docs/game-data.md for the calls and
+-- how they were verified. No recipe rule is written here.
 local catalog = {}
 
--- Unverified in game: the table row has a `bHideInGame` flag (header dump). When true, items the game hides are left
--- out. It ships off until the in-game test shows what the flag means (the log lists the items that have it).
-local EXCLUDE_HIDDEN = false
+-- Items the game hides (`bHideInGame`) are never usable, so they are left out (checked by the user in game 1.1.5024,
+-- see docs/game-data.md). The log lists the items that have the flag.
+local EXCLUDE_HIDDEN = true
 
--- Unverified in game: the table row has an `IsLiquid` flag (header dump). When true, liquids are not ingredients, since
--- a cauldron takes no liquid (seen by the user in game). On ahead of the in-game check of this branch, a deliberate
--- exception to AGENTS.md section 6 (see docs/game-data.md). Turn it off if the log shows a wrong item.
+-- A cauldron takes no liquid (seen by the user in game). Liquids are the rows with `IsLiquid` set and the drinks, rows
+-- whose `SellType` is Liquid (see docs/game-data.md). Turn it off if the log shows a wrong item.
 local EXCLUDE_LIQUIDS = true
+
+-- `EEnemySellType::Liquid` in the header dump (BeltTD_enums.hpp). Not yet checked how the binding returns the enum.
+local SELL_TYPE_LIQUID = 6
 
 local GAME_STATE = "BP_BeltTDGameState_C"
 local LIBRARY = "/Game/Blueprints/Core/BP_BeltTDFunctionLib.Default__BP_BeltTDFunctionLib_C"
@@ -108,6 +110,8 @@ function catalog.load(log)
   local self = { items = {}, ingredients = {}, ingredientIndex = {}, products = {}, productSet = {} }
   local hiddenSeen, unreadable = {}, 0
   local liquids, liquidUnreadable, liquidProducts = {}, 0, {}
+  local drinks, drinkUnreadable, hiddenProducts = {}, 0, {}
+  local sellTypeLogged = false
   local first, last
   local read, problem = pcall(function()
     table_:ForEachRow(function(name, row)
@@ -131,6 +135,10 @@ function catalog.load(log)
         hiddenSeen[#hiddenSeen + 1] = name
       end
       if EXCLUDE_HIDDEN and hiddenFlag then
+        -- A hidden row is skipped before the product check, so one that could be a product is reported.
+        if (number(row.CauldronMulti) or 0) > 0 then
+          hiddenProducts[#hiddenProducts + 1] = name
+        end
         return
       end
       local liquidFlag = nil
@@ -145,8 +153,27 @@ function catalog.load(log)
       if liquidFlag then
         liquids[#liquids + 1] = name
       end
-      -- A liquid is not an ingredient; an unreadable flag keeps the item, so a game change does not empty the list.
-      if (number(row.CauldronCost) or 0) > 0 and not (EXCLUDE_LIQUIDS and liquidFlag) then
+      local drinkFlag = nil
+      local sellOk, sellType = pcall(function()
+        return row.SellType
+      end)
+      local sellNumber = sellOk and number(sellType) or nil
+      if sellNumber ~= nil then
+        drinkFlag = sellNumber == SELL_TYPE_LIQUID
+      else
+        drinkUnreadable = drinkUnreadable + 1
+        if not sellTypeLogged then
+          sellTypeLogged = true
+          log("SellType is not a number (" .. type(sellType) .. ": " .. tostring(sellType) .. "), see game-data.md")
+        end
+      end
+      if drinkFlag then
+        drinks[#drinks + 1] = name
+      end
+      -- A liquid or a drink is not an ingredient; an unreadable flag keeps the item, so a game change does not empty
+      -- the list.
+      local isLiquid = liquidFlag or drinkFlag
+      if (number(row.CauldronCost) or 0) > 0 and not (EXCLUDE_LIQUIDS and isLiquid) then
         self.ingredients[#self.ingredients + 1] = name
         self.ingredientIndex[name] = #self.ingredients
       end
@@ -168,10 +195,14 @@ function catalog.load(log)
   self.key = #self.items .. ":" .. #self.ingredients .. ":" .. tostring(first) .. ":" .. tostring(last)
   self.hiddenInGame = hiddenSeen
   self.hiddenUnreadable = unreadable
+  self.hiddenExcluded = EXCLUDE_HIDDEN
+  self.hiddenProducts = hiddenProducts
   self.liquidsExcluded = EXCLUDE_LIQUIDS
   self.liquids = liquids
   self.liquidUnreadable = liquidUnreadable
   self.liquidProducts = liquidProducts
+  self.drinks = drinks
+  self.drinkUnreadable = drinkUnreadable
   if not loadTimed then
     loadTimed = true
     log(string.format("read the item table in %.0f ms", (os.clock() - startedAt) * 1000))

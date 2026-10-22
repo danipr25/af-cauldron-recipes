@@ -124,8 +124,9 @@ function Session:adopt(fresh)
   )
   log(
     string.format(
-      "bHideInGame: %d item(s) have it set (%s), %d could not be read",
+      "bHideInGame: %d item(s) have it set, %s (%s), %d could not be read",
       #fresh.hiddenInGame,
+      fresh.hiddenExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_HIDDEN is off)",
       table.concat(fresh.hiddenInGame, ", "),
       fresh.hiddenUnreadable
     )
@@ -139,6 +140,18 @@ function Session:adopt(fresh)
       fresh.liquidUnreadable
     )
   )
+  log(
+    string.format(
+      "SellType Liquid: %d item(s) are drinks, %s (%s), %d could not be read",
+      #fresh.drinks,
+      fresh.liquidsExcluded and "not ingredients" or "kept as ingredients (EXCLUDE_LIQUIDS is off)",
+      table.concat(fresh.drinks, ", "),
+      fresh.drinkUnreadable
+    )
+  )
+  if #fresh.hiddenProducts > 0 then
+    log("bHideInGame products (left out of the products): " .. table.concat(fresh.hiddenProducts, ", "))
+  end
   if #fresh.liquidProducts > 0 then
     log("IsLiquid products: " .. table.concat(fresh.liquidProducts, ", "))
   end
