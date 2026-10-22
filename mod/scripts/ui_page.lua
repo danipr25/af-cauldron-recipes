@@ -1,9 +1,11 @@
 -- The Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
 -- player clicks, in pages (small buttons, arrows and status lines keep it compact). Game-facing through the
 -- AF Mod Loader API's page widgets: checked in game.
+local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
 local names = require("names")
+local record = require("record")
 
 local ui = {}
 
@@ -81,7 +83,7 @@ function ui.new(deps)
 end
 
 local function freshModel()
-  return { mode = "normal", view = "grid", search = "", selected = nil, pageIndex = 1 }
+  return { mode = "normal", view = "grid", search = "", selected = nil, pageIndex = 1, filter = {}, pickSearch = "" }
 end
 
 -- Adds the tab. Call it while the mod's entrypoint runs.
@@ -146,7 +148,9 @@ function Ui:build(page)
   if rec.readOnly then
     sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
   end
-  if self.model.view == "recipes" and self.model.selected then
+  if self.model.view == "pick" and self.model.selected then
+    self:buildPick(page, rec, catalog, index)
+  elseif self.model.view == "recipes" and self.model.selected then
     self:buildRecipes(page, rec, catalog, index)
   else
     self.model.view = "grid"
@@ -201,6 +205,7 @@ function Ui:buildGrid(page, rec, catalog, index)
             model.selected = clicked
             model.view = "recipes"
             model.pageIndex = 1
+            model.filter = {} -- a filter belongs to one product in one mode
             self:refresh()
           end,
         })
@@ -271,12 +276,99 @@ local function recipeLists(rec, catalog, index, mode, product)
   return discovered, indexed
 end
 
+-- The lists as the page shows them: the filter applied to both. The third value is the number of recipes before the
+-- filter, or nil when no ingredient is chosen.
+local function filteredLists(rec, catalog, index, mode, product, wanted)
+  local discovered, indexed = recipeLists(rec, catalog, index, mode, product)
+  if #wanted == 0 then
+    return discovered, indexed, nil
+  end
+  local counts = listing.counts(discovered, indexed)
+  return filterModule.apply(discovered, wanted), filterModule.apply(indexed, wanted), counts.discovered + counts.other
+end
+
+-- The ingredient positions that can still be added to the filter, as a set (see filter.ingredients).
+function Ui:candidates(rec, catalog, index)
+  local model = self.model
+  local discovered, indexed = recipeLists(rec, catalog, index, model.mode, model.selected)
+  return filterModule.ingredients(model.filter, discovered, indexed)
+end
+
+-- One row: "Filter:", the chosen ingredients, + Add (while there is a slot left and something to add) and Clear.
+function Ui:buildFilterRow(page, rec, catalog, index)
+  local model = self.model
+  local row = page:row()
+  row:text("Filter:", { size = "small" })
+  for _, position in ipairs(model.filter) do
+    row:item(catalog.ingredients[position], 1)
+  end
+  if #model.filter < record.SLOTS[model.mode] and next(self:candidates(rec, catalog, index)) then
+    row:button("+ Add", function()
+      model.view = "pick"
+      model.pickSearch = ""
+      self:refresh()
+    end, { small = true })
+  end
+  if #model.filter > 0 then
+    row:button("Clear", function()
+      model.filter = {}
+      model.pageIndex = 1
+      self:refresh()
+    end, { small = true })
+  end
+end
+
+-- The view for choosing an ingredient to add to the filter.
+function Ui:buildPick(page, rec, catalog, index)
+  local model = self.model
+  page:text("Add an ingredient"):color(GOLD[1], GOLD[2], GOLD[3])
+  page:row():button("Back", function()
+    model.view = "recipes"
+    self:refresh()
+  end, { small = true })
+  local candidates = self:candidates(rec, catalog, index)
+  local grid
+  local function fill()
+    grid:clear()
+    local wanted = names.fold(model.pickSearch)
+    for position, name in ipairs(catalog.ingredients) do
+      if candidates[position] and (wanted == "" or names.fold(catalog.display(name)):find(wanted, 1, true)) then
+        grid:tile(name, {
+          onClick = function(clicked)
+            model.filter[#model.filter + 1] = catalog.ingredientIndex[clicked]
+            model.pageIndex = 1
+            model.view = "recipes"
+            self:refresh()
+          end,
+        })
+      end
+    end
+  end
+  local input = page:input({
+    hint = "Search",
+    onChange = function(text)
+      model.pickSearch = text
+      fill()
+    end,
+  })
+  input:set(model.pickSearch)
+  if rec:otherVisible(model.selected) and finding(index) then
+    smallLine(page, "Ingredients in the recipes found so far")
+  end
+  if next(candidates) == nil then
+    sentence(page, "No ingredient to add.")
+  end
+  grid = page:grid()
+  fill()
+end
+
 -- The recipes of the selected product, one page.
 function Ui:buildRecipes(page, rec, catalog, index)
   local model = self.model
   local product, mode = model.selected, model.mode
 
-  local discovered, indexed = recipeLists(rec, catalog, index, mode, product)
+  local wanted = model.filter
+  local discovered, indexed, unfiltered = filteredLists(rec, catalog, index, mode, product, wanted)
   local result = listing.page(discovered, indexed, model.pageIndex, PAGE_SIZE)
   model.pageIndex = result.page
   local counts = listing.counts(discovered, indexed)
@@ -309,21 +401,25 @@ function Ui:buildRecipes(page, rec, catalog, index)
   page:row():item(product, 1)
   sentence(page, catalog.display(product), GOLD)
 
-  local function statusLine(total, percent)
-    return statusText(MODE_LABEL[mode] .. ", " .. plural(total, "recipe"), waiting and percent or nil)
+  local function statusLine(total, all, percent)
+    local count = plural(all or total, "recipe")
+    if all then
+      count = string.format("%d of %s", total, count)
+    end
+    return statusText(MODE_LABEL[mode] .. ", " .. count, waiting and percent or nil)
   end
-  local status = smallLine(page, statusLine(result.total, index:progress()))
+  local status = smallLine(page, statusLine(result.total, unfiltered, index:progress()))
   if waiting then
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
-      local now, later = recipeLists(rec, catalog, index, mode, product)
+      local now, later, all = filteredLists(rec, catalog, index, mode, product, wanted)
       local current = listing.page(now, later, 1, PAGE_SIZE)
-      return current.pages, current.total
+      return current.pages, current.total, all
     end
     local shownPages = result.pages
     self.current.onProgress = function(percent)
-      local pages, total = live()
-      status:set(statusLine(total, percent))
+      local pages, total, all = live()
+      status:set(statusLine(total, all, percent))
       if pages > shownPages then
         shownPages = pages
         pageText:set(pageLabel(pages))
@@ -334,16 +430,18 @@ function Ui:buildRecipes(page, rec, catalog, index)
   if rec:otherVisible(product) then
     failedLine(page, index)
   end
+  self:buildFilterRow(page, rec, catalog, index)
   if result.total == 0 then
-    sentence(page, waiting and "No recipes to show for this item yet." or "No recipes to show for this item.")
+    local text = #wanted > 0 and "No recipes with these ingredients" or "No recipes to show for this item"
+    sentence(page, text .. (waiting and " yet." or "."))
   end
 
   local list = page:list()
   local heading = nil -- "Discovered" or "Other recipes": the heading last written (headings are not recipes)
   for _, item in ipairs(result.items) do
-    local wanted = item.discovered and "Discovered" or "Other recipes"
-    if wanted ~= heading then
-      heading = wanted
+    local kind = item.discovered and "Discovered" or "Other recipes"
+    if kind ~= heading then
+      heading = kind
       if item.discovered then
         local text = list:row():text(string.format("Discovered (%d)", counts.discovered))
         text:color(GOLD[1], GOLD[2], GOLD[3])
