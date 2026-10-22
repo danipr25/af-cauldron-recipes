@@ -80,7 +80,13 @@ local row = dt:FindRow("Gentian")         -- row.CauldronCost == 400.0, row.Caul
 dt:ForEachRow(function(name, row) ... end) -- every row, in the table's order
 ```
 
-The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items with a cauldron cost) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. Some of the 170 are hidden in game (`bHideInGame`): which ones a player can actually put in a cauldron is not checked. The 170 include liquids, which a cauldron does not take (seen by the user in game). The mod skips rows with `IsLiquid` set (`EXCLUDE_LIQUIDS = true` in `catalog.lua`), so the ingredient count is lower than 170. This ships on ahead of the in-game check, a deliberate exception to AGENTS.md section 6; the log lists the liquids and every ingredient. The web calculator (game 1.0) excludes liquids too. Result of the in-game check: pending (game version, date and how it was checked go here).
+The fields are doubles (`FBeltTDEnemyConfig` in the header dump). Read on 1.1.5023: 180 rows, 170 with `CauldronCost > 0` (the items with a cauldron cost) and 47 with `CauldronMulti > 0` (the items a cauldron can produce). The 10 rows without a cost are Aloe, AloeSeed, AloePaste, Salve, WoodAcid, Pottery, Ceramics, FireBrick, Granite and DriedClay. The 170 include things a cauldron does not take, so the mod leaves out of the ingredients:
+
+- Liquids: rows with `IsLiquid` set (`EXCLUDE_LIQUIDS = true` in `catalog.lua`). Read on 1.1.5024 (UE4SS log, 2026-10-22): `IsLiquid` was read on every row, 13 liquids were excluded, 158 ingredients remained, and the index of 682,481 combinations took 6.9 s.
+- Drinks: rows whose `SellType` is `EEnemySellType::Liquid` (value 6, `BeltTD_enums.hpp`), under the same switch. Whispering Fields, Strange Tide, Lavender Dream, World Tree Vintage and Alchemist's Sigh are liquids that cannot be moved (they are crafted where they are sold), and a cauldron cannot take them (checked by the user in game 1.1.5024, 2026-10-22). In the game 1.0 export (`DT_Enemies`) exactly those five rows have `SellType = EEnemySellType::Liquid` and `IsLiquid = false`. Whether the DataTable binding returns the enum as a number is not verified: the mod accepts a number, and logs the raw type and value once if it is not one.
+- Hidden items: rows with `bHideInGame` set (`EXCLUDE_HIDDEN = true`). Hidden items are never usable (checked by the user in game 1.1.5024, 2026-10-22). A hidden row is skipped before the product check, so the mod logs any hidden row with `CauldronMulti > 0` (none expected).
+
+Automatic Cashier (`CashRegister`) can be set in a cauldron's filter (seen in the cauldron's Select list), so it stays an ingredient. The web calculator (game 1.0) excludes liquids too. The expected ingredient count with all three rules is about 139 (to be confirmed by the log).
 
 `UDataTableFunctionLibrary:GetDataTableColumnAsString` exists as a fallback; it was not needed and is not tested.
 
@@ -130,8 +136,7 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 
 Each of these ships disabled or marked, as AGENTS.md section 6 asks.
 
-- `IsLiquid` on the item rows (`FBeltTDEnemyConfig`, header dump): that reading it works and that it matches the items a cauldron refuses is not verified. The mod logs the liquids and any liquid product (`EXCLUDE_LIQUIDS` in `catalog.lua`).
-- `bHideInGame` on the item rows (`FBeltTDEnemyConfig`, header dump): what it means for cauldron ingredients and products is unknown. The mod logs the items that have it set and reads it only to log (`EXCLUDE_HIDDEN = false` in `catalog.lua`).
+- `SellType` read through the DataTable binding (`FBeltTDEnemyConfig`, header dump; the game 1.0 export has the values): that it comes back as a number, and that the log lists exactly the five drinks. The mod logs the drinks and the raw value if it is not a number (`EXCLUDE_LIQUIDS` in `catalog.lua`).
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.
