@@ -11,6 +11,20 @@ local function packedOf(page)
 end
 
 return {
+  TestListingCounts = {
+    testTotalsUnderEachHeading = function()
+      local cases = {
+        { discovered = {}, indexed = nil, want = { discovered = 0, other = 0 } },
+        { discovered = { 5, 6 }, indexed = nil, want = { discovered = 2, other = 0 } },
+        { discovered = {}, indexed = { 1, 2, 3 }, want = { discovered = 0, other = 3 } },
+        { discovered = { 2, 9 }, indexed = { 1, 2, 3 }, want = { discovered = 2, other = 2 } },
+      }
+      for _, case in ipairs(cases) do
+        lu.assertEquals(listing.counts(case.discovered, case.indexed), case.want)
+      end
+    end,
+  },
+
   TestListing = {
     testDiscoveredFirstThenTheIndexWithoutRepeats = function()
       local page = listing.page({ 30, 10 }, { 10, 20, 30, 40 }, 1, 20)

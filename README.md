@@ -1,18 +1,19 @@
 # Cauldron Recipes
 
-A mod for **Alchemy Factory** that adds a Cauldron Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API.
+A mod for **Alchemy Factory** that adds a Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.5 or newer (0.1.x).
 
-Status: version 0.1.0, written but not yet tested in the game. Behaviour that has not been verified in game is listed in `docs/game-data.md`.
+Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game; the new tab layout is being tested. Behaviour that has not been verified in game is listed in `docs/game-data.md`.
 
 Unofficial fan project. Alchemy Factory belongs to its developers.
 
 ## What you get
 
-- A **Cauldron Recipes** tab next to Player, World and Recognition.
-  - Buttons for **Normal** and **Advanced** cauldrons, and a search box. The search looks at the item names as the game shows them. It ignores the case of the letters A to Z only: other letters (accents, for example) must match exactly.
-  - A grid of the products that have at least one visible recipe in that mode. Click one to see its recipes, 20 per page, with Previous, Next and Back.
-  - A recipe shows its ingredients, then the product. Recipes you have already set on one of your cauldrons are listed first, under a "Discovered" heading.
-- Recipes come from the game, never from a list in the mod: the mod asks the game which product each combination gives. Each time the game starts, the first world you load builds an index of every combination in the background, a few milliseconds per frame; the page shows "Indexing..." with a percentage until it is done. Indexing takes about a minute in the background and uses about 25 MB of Lua memory.
+- A **Recipes** tab next to Player, World and Recognition.
+  - The grid page shows which cauldron you are looking at (Normal or Advanced, in gold), a small button to switch to the other one, a search box and a short status line with the number of products. The search looks at the item names as the game shows them. It ignores the case of the letters A to Z only: other letters (accents, for example) must match exactly.
+  - Below it, a grid of the products that have at least one visible recipe in that mode. Click one to see its recipes.
+  - The recipes page has one row with a small Back button, a previous arrow, "page / pages" and a next arrow (20 recipes per page; an arrow is grey when there is no page in that direction), then the product and its name in gold. A small status line under them says, for example, "Normal cauldron, 12 recipes".
+  - The list has a gold **Discovered (n)** heading for the recipes you have already set on one of your cauldrons, then **Other recipes (n)**. Each heading shows up on the pages that have recipes of its kind, and its number counts them across all pages. A recipe is a row of its ingredients with a + between them: the product is the one shown at the top.
+- Recipes come from the game, never from a list in the mod: the mod asks the game which product each combination gives. Each time the game starts, the first world you load builds an index of every combination in the background, a few milliseconds per frame; the page shows "finding recipes" with a percentage until it is done (the grid shows it only once some product is unlocked), and "Other recipes" says "so far" until then. Finding them takes about a minute in the background and uses about 25 MB of Lua memory.
 
 ## Which recipes are shown
 

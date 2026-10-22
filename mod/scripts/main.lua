@@ -1,4 +1,4 @@
--- Cauldron Recipes: entrypoint. Adds the Cauldron Recipes tab and the recipes.* console commands, using only the
+-- Cauldron Recipes: entrypoint. Adds the Recipes tab and the recipes.* console commands, using only the
 -- public calls of the AF Mod Loader API. See the README for what it changes.
 local api = AF.require("af-modloader-api").use(AF)
 local commands = require("commands")

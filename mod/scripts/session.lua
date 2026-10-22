@@ -159,6 +159,7 @@ function Session:newIndex()
     end,
     onFail = function(problem)
       log("could not build the recipe index (" .. problem .. "). Recipes that were not discovered will not be listed")
+      self.deps.onRefresh()
     end,
   })
 end
