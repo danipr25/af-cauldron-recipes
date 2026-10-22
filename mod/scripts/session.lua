@@ -149,8 +149,8 @@ function Session:adopt(fresh)
       fresh.drinkUnreadable
     )
   )
-  if #fresh.hiddenProducts > 0 then
-    log("bHideInGame products (left out of the products): " .. table.concat(fresh.hiddenProducts, ", "))
+  if #fresh.hiddenProductRows > 0 then
+    log("bHideInGame products (left out of the products): " .. table.concat(fresh.hiddenProductRows, ", "))
   end
   if #fresh.liquidProducts > 0 then
     log("IsLiquid products: " .. table.concat(fresh.liquidProducts, ", "))

@@ -110,7 +110,7 @@ function catalog.load(log)
   local self = { items = {}, ingredients = {}, ingredientIndex = {}, products = {}, productSet = {} }
   local hiddenSeen, unreadable = {}, 0
   local liquids, liquidUnreadable, liquidProducts = {}, 0, {}
-  local drinks, drinkUnreadable, hiddenProducts = {}, 0, {}
+  local drinks, drinkUnreadable, hiddenProductRows = {}, 0, {}
   local sellTypeLogged = false
   local first, last
   local read, problem = pcall(function()
@@ -137,7 +137,7 @@ function catalog.load(log)
       if EXCLUDE_HIDDEN and hiddenFlag then
         -- A hidden row is skipped before the product check, so one that could be a product is reported.
         if (number(row.CauldronMulti) or 0) > 0 then
-          hiddenProducts[#hiddenProducts + 1] = name
+          hiddenProductRows[#hiddenProductRows + 1] = name
         end
         return
       end
@@ -164,7 +164,11 @@ function catalog.load(log)
         drinkUnreadable = drinkUnreadable + 1
         if not sellTypeLogged then
           sellTypeLogged = true
-          log("SellType is not a number (" .. type(sellType) .. ": " .. tostring(sellType) .. "), see game-data.md")
+          if sellOk then
+            log("SellType is not a number (" .. type(sellType) .. ": " .. tostring(sellType) .. "), see game-data.md")
+          else
+            log("SellType could not be read (" .. tostring(sellType) .. "), see game-data.md")
+          end
         end
       end
       if drinkFlag then
@@ -196,7 +200,7 @@ function catalog.load(log)
   self.hiddenInGame = hiddenSeen
   self.hiddenUnreadable = unreadable
   self.hiddenExcluded = EXCLUDE_HIDDEN
-  self.hiddenProducts = hiddenProducts
+  self.hiddenProductRows = hiddenProductRows
   self.liquidsExcluded = EXCLUDE_LIQUIDS
   self.liquids = liquids
   self.liquidUnreadable = liquidUnreadable
