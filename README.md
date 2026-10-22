@@ -1,6 +1,6 @@
 # Cauldron Recipes
 
-A mod for **Alchemy Factory** that adds a Cauldron Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.3 or newer (0.1.x).
+A mod for **Alchemy Factory** that adds a Recipes tab to the TAB menu: search, Normal and Advanced modes, and the recipes you have already discovered. It also adds console commands to show or hide recipes. Requires AF Mod Loader and AF Mod Loader API 0.1.3 or newer (0.1.x).
 
 Status: version 0.1.0. The core (the filter hook, commands, worlds, the recipe index and its memory use) has been tested in the game; the new tab layout is being tested. Behaviour that has not been verified in game is listed in `docs/game-data.md`.
 
@@ -8,7 +8,7 @@ Unofficial fan project. Alchemy Factory belongs to its developers.
 
 ## What you get
 
-- A **Cauldron Recipes** tab next to Player, World and Recognition.
+- A **Recipes** tab next to Player, World and Recognition.
   - The grid page shows which cauldron you are looking at (Normal or Advanced, in gold), a button to switch to the other one, a search box and a short status line with the number of products. The search looks at the item names as the game shows them. It ignores the case of the letters A to Z only: other letters (accents, for example) must match exactly.
   - Below it, a grid of the products that have at least one visible recipe in that mode. Click one to see its recipes.
   - The recipes page has a Back button next to the product, its name in gold, and `<` and `>` buttons around "Page 2 of 5" (20 recipes per page; a button is grey when there is no page in that direction). Under them the status line says "Normal cauldron, 12 recipes".

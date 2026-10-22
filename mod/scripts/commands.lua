@@ -94,13 +94,13 @@ function commands.install(deps)
 
   api.console.add({
     name = "recipes.unlockall",
-    help = "Shows every cauldron recipe in the Cauldron Recipes tab, discovered or not. Asks to confirm.",
+    help = "Shows every cauldron recipe in the Recipes tab, discovered or not. Asks to confirm.",
     run = function(args, out)
       local rec = target(out)
       if not rec then
         return
       end
-      if confirmed("unlockall", "This shows every recipe in the Cauldron Recipes tab.", args, out) then
+      if confirmed("unlockall", "This shows every recipe in the Recipes tab.", args, out) then
         apply(rec, rec.unlockAll, "Every recipe is shown now.", out)
       end
     end,
@@ -108,7 +108,7 @@ function commands.install(deps)
 
   api.console.add({
     name = "recipes.lockall",
-    help = "Hides every recipe in the Cauldron Recipes tab, also the discovered ones. The record is kept: a recipe "
+    help = "Hides every recipe in the Recipes tab, also the discovered ones. The record is kept: a recipe "
       .. "you set on a cauldron again comes back. Asks to confirm."
       .. HOW_TO_GO_BACK,
     run = function(args, out)

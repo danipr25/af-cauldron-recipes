@@ -1,4 +1,4 @@
--- The Cauldron Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
+-- The Recipes tab: a mode button, a search box, a grid of products, and the recipes of the product the
 -- player clicks, in pages. Game-facing through the AF Mod Loader API's page widgets: checked in game.
 local indexModule = require("index")
 local listing = require("listing")
@@ -80,7 +80,7 @@ end
 function Ui:install()
   self.tab = self.deps.api.tabs.add({
     id = "recipes",
-    title = "Cauldron Recipes",
+    title = "Recipes",
     build = function(page)
       self.building = true
       local ok, problem = xpcall(self.build, debug.traceback, self, page)
