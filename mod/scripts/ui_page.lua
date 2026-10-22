@@ -280,13 +280,13 @@ function Ui:buildRecipes(page, rec, catalog, index)
     model.view = "grid"
     self:refresh()
   end)
-  local previous = nav:button("<", function()
+  local previous = nav:button("Previous", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
       self:refresh()
     end
   end)
-  local following = nav:button(">", function()
+  local following = nav:button("Next", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
     self:refresh()
   end)
