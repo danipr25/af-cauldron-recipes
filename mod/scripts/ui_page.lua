@@ -1,34 +1,26 @@
 -- The Recipes tab (in the V menu, the item catalog), in two columns: on the left a mode button, a search box and a
--- grid of products; on the right the recipes of the product the player clicked, in pages, two recipes to a list row
--- (small buttons, arrows and status lines keep it compact). A click on the right only rebuilds the right pane, so the
--- product grid keeps its scroll. Game-facing through the AF Mod Loader API's page widgets (page:columns, pane:clear,
--- space; see its docs/api.md and docs/widgets.md for what is verified in game): not yet checked with this mod in the
--- V menu.
+-- grid of products; on the right the recipes of the product the player clicked, in pages, a few recipes to a list row
+-- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact). A click
+-- on the right only rebuilds the right pane, so the product grid keeps its scroll. Game-facing through the AF Mod
+-- Loader API's page widgets (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is
+-- verified in game): this look has not run in game with this mod yet.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
 local names = require("names")
 local record = require("record")
+local style = require("style")
 
 local ui = {}
 
 local Ui = {}
 Ui.__index = Ui
 
-local PAGE_SIZE = 40 -- recipes per page: two to a list row
-local PER_ROW = 2
--- The gap between the two recipes of a row. A probe in game (2026-10-23) showed that a gap of 32 does not separate
--- groups of tiles and that a row of three groups overflows the pane: tune this after looking at it in game.
-local RECIPE_GAP = 64
-local SECTION_GAP = 8
 local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
 local OTHER_MODE = { normal = "advanced", advanced = "normal" }
 local SWITCH_LABEL = { normal = "Show advanced", advanced = "Show normal" }
 
--- Colors (red, green, blue). GOLD is the one verified in game. MUTED is a cream for status lines: a plain grey was
--- too close to white on the panel.
-local GOLD = { 1.0, 0.75, 0.2 }
-local MUTED = { 0.88, 0.82, 0.70 }
+local dark = style.dark
 
 local function plural(count, word)
   return string.format("%d %s%s", count, word, count == 1 and "" or "s")
@@ -36,19 +28,13 @@ end
 
 -- Every sentence wraps at the edge of its pane (or the panel's). `target` is the page or a pane. Returns the text
 -- handle.
-local function sentence(target, text, color)
-  local handle = target:text(text, { wrap = true })
-  if color then
-    handle:color(color[1], color[2], color[3])
-  end
-  return handle
+local function sentence(target, text)
+  return dark(target:text(text, { wrap = true }))
 end
 
--- A short muted status line in small text (a small text cannot wrap). Returns the text handle.
+-- A short status line in small text (a small text cannot wrap). Returns the text handle.
 local function smallLine(target, text)
-  local handle = target:text(text, { size = "small" })
-  handle:color(MUTED[1], MUTED[2], MUTED[3])
-  return handle
+  return dark(target:text(text, { size = "small" }))
 end
 
 -- "<base>, finding recipes 40%", or just one of them. `percent` is nil when the recipes are all found.
@@ -191,7 +177,7 @@ function Ui:build(page)
   if rec.readOnly then
     sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
   end
-  local left, right = table.unpack(page:columns({ 1, 2 }))
+  local left, right = table.unpack(page:columns({ 1, 2 }, { divider = true }))
   self.right = right
   self.current.left = self:buildLeft(left, rec, catalog, index)
   self.current.right = self:buildRight(right, rec, catalog, index)
@@ -230,7 +216,7 @@ end
 -- The left pane: the mode, the search and the grid of products. Returns the progress callback, or nil.
 function Ui:buildLeft(pane, rec, catalog, index)
   local model = self.model
-  pane:text(MODE_LABEL[model.mode]):color(GOLD[1], GOLD[2], GOLD[3])
+  dark(pane:text(MODE_LABEL[model.mode]))
   local top = pane:row()
   top:button(SWITCH_LABEL[model.mode], function()
     -- The visible products change, so the page is built again. What is shown on the right starts over. `rec` and
@@ -244,6 +230,7 @@ function Ui:buildLeft(pane, rec, catalog, index)
     end
     self:refresh()
   end, { small = true })
+  pane:divider()
 
   local visible = {}
   for _, product in ipairs(catalog.products) do
@@ -352,7 +339,7 @@ end
 function Ui:buildFilterRow(pane, rec, catalog, index)
   local model = self.model
   local row = pane:row()
-  row:text("Filter:", { size = "small" })
+  dark(row:text("Filter:", { size = "small" }))
   for i, position in ipairs(model.filter) do
     -- A click removes this one entry (the same ingredient twice loses one), then the list starts at page 1.
     row:item(catalog.ingredients[position], 1, {
@@ -390,7 +377,7 @@ function Ui:buildRight(pane, rec, catalog, index)
     if self.noProducts then
       return nil
     end
-    pane:text("Pick a product on the left"):color(GOLD[1], GOLD[2], GOLD[3])
+    dark(pane:text("Pick a product on the left"))
     sentence(pane, "Its recipes show here.")
     return nil
   end
@@ -403,7 +390,7 @@ end
 -- The view for choosing an ingredient to add to the filter.
 function Ui:buildPick(pane, rec, catalog, index)
   local model = self.model
-  pane:text("Add an ingredient"):color(GOLD[1], GOLD[2], GOLD[3])
+  dark(pane:text("Add an ingredient"))
   pane:row():button("Back", function()
     model.view = "recipes"
     self:rebuildRight()
@@ -452,22 +439,22 @@ function Ui:buildRecipes(pane, rec, catalog, index)
 
   local wanted = model.filter
   local discovered, indexed, unfiltered = filteredLists(rec, catalog, index, mode, product, wanted)
-  local result = listing.page(discovered, indexed, model.pageIndex, PAGE_SIZE)
+  local pageSize = listing.PAGE_SIZE[mode]
+  local result = listing.page(discovered, indexed, model.pageIndex, pageSize)
   model.pageIndex = result.page
   local counts = listing.counts(discovered, indexed)
   local waiting = rec:otherVisible(product) and finding(index)
 
   local head = pane:row()
   head:item(product, 1)
-  head:text(catalog.display(product)):color(GOLD[1], GOLD[2], GOLD[3])
+  dark(head:text(catalog.display(product)))
 
   local function statusLine(total, all, percent)
     local count = plural(all or total, "recipe")
     if all then
       count = string.format("%d of %s", total, count)
     end
-    local base = MODE_LABEL[mode] .. ", " .. count
-    base = base .. string.format(", %d discovered", counts.discovered)
+    local base = count .. string.format(", %d discovered", counts.discovered)
     return statusText(base, waiting and percent or nil)
   end
   local status = smallLine(pane, statusLine(result.total, unfiltered, index:progress()))
@@ -483,7 +470,7 @@ function Ui:buildRecipes(pane, rec, catalog, index)
   local function pageLabel(pages)
     return string.format("%d / %d", result.page, pages)
   end
-  local pageText = nav:text(pageLabel(result.pages), { size = "small" })
+  local pageText = dark(nav:text(pageLabel(result.pages), { size = "small" }))
   local following = nav:arrow("next", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
     self:rebuildRight()
@@ -497,7 +484,7 @@ function Ui:buildRecipes(pane, rec, catalog, index)
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
       local now, later, all = filteredLists(rec, catalog, index, mode, product, wanted)
-      local current = listing.page(now, later, 1, PAGE_SIZE)
+      local current = listing.page(now, later, 1, pageSize)
       return current.pages, current.total, all
     end
     local shownPages = result.pages
@@ -514,31 +501,31 @@ function Ui:buildRecipes(pane, rec, catalog, index)
   if rec:anyUnlocked() then
     failedLine(pane, index)
   end
-  pane:space(SECTION_GAP)
+  pane:divider()
   self:buildFilterRow(pane, rec, catalog, index)
   if result.total == 0 then
     local text = #wanted > 0 and "No recipes with these ingredients" or "No recipes to show for this item"
     sentence(pane, text .. (waiting and " yet." or "."))
   end
 
-  pane:space(SECTION_GAP)
+  pane:divider()
   local list = pane:list()
-  for _, entry in ipairs(listing.rows(result.items, PER_ROW)) do
+  for _, entry in ipairs(listing.rows(result.items, listing.PER_ROW[mode])) do
     local row = list:row()
     if entry.heading and entry.discovered then
-      row:text(string.format("Discovered (%d)", counts.discovered)):color(GOLD[1], GOLD[2], GOLD[3])
+      dark(row:text(string.format("Discovered (%d)", counts.discovered)))
     elseif entry.heading then
       local suffix = waiting and " so far" or ""
-      row:text(string.format("Other recipes (%d%s)", counts.other, suffix)):color(MUTED[1], MUTED[2], MUTED[3])
+      dark(row:text(string.format("Other recipes (%d%s)", counts.other, suffix)))
     else
       for number, packed in ipairs(entry.recipes) do
         if number > 1 then
-          row:space(RECIPE_GAP)
+          row:divider()
         end
         local first, second, third = indexModule.unpack(packed)
         for place, position in ipairs({ first, second, third }) do
           if place > 1 then
-            row:text(" + ")
+            dark(row:text(" + "))
           end
           row:item(catalog.ingredients[position], 1)
         end

@@ -27,7 +27,7 @@ gh attestation verify <file> --repo danipr25/af-cauldron-recipes --signer-workfl
 **Recipes tab** (V menu, after Ledger):
 
 - Two columns. On the left, a grid of the products that have recipes you can see. Use the search box to find one, and the button at the top to switch between the Normal and Advanced cauldron.
-- Click a product to see its recipes on the right, 40 per page, two to a row. They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
+- Click a product to see its recipes on the right, two to a row in Normal and three in Advanced (40 and 42 per page). They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
 - **Filter:** **+ Add** picks an ingredient, and only the recipes that use it stay. You can pick as many ingredients as the cauldron has slots. Click an ingredient in the filter to remove it, or **Clear** to remove them all.
 
 **Item sheet** (V menu, Materials and Goods):

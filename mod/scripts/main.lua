@@ -9,7 +9,7 @@ local sheet = require("sheet")
 local store = require("store")
 local uiPage = require("ui_page")
 
-local VERSION = "0.1.1"
+local VERSION = "0.1.2"
 
 -- The real file functions for the store (Lua's io and os, as the loader documents for AF.dataDir).
 local files = {
