@@ -17,8 +17,8 @@ Ui.__index = Ui
 
 local PAGE_SIZE = 40 -- recipes per page: two to a list row
 local PER_ROW = 2
--- The gap between the two recipes of a row. The API's docs measured that a gap of 32 does not separate groups of tiles
--- and that a row of three groups overflows the pane: tune this after looking at it in game.
+-- The gap between the two recipes of a row. A probe in game (2026-10-23) showed that a gap of 32 does not separate
+-- groups of tiles and that a row of three groups overflows the pane: tune this after looking at it in game.
 local RECIPE_GAP = 64
 local SECTION_GAP = 8
 local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
@@ -233,7 +233,8 @@ function Ui:buildLeft(pane, rec, catalog, index)
   pane:text(MODE_LABEL[model.mode]):color(GOLD[1], GOLD[2], GOLD[3])
   local top = pane:row()
   top:button(SWITCH_LABEL[model.mode], function()
-    -- The visible products change, so the page is built again. What is shown on the right starts over.
+    -- The visible products change, so the page is built again. What is shown on the right starts over. `rec` and
+    -- `index` are the ones of this build: safe, because the index changing ends in a full refresh.
     model.mode = OTHER_MODE[model.mode]
     model.filter = {}
     model.pageIndex = 1
@@ -251,6 +252,7 @@ function Ui:buildLeft(pane, rec, catalog, index)
     end
   end
   local waiting = rec:anyUnlocked() and finding(index)
+  self.noProducts = #visible == 0 and not waiting
 
   local grid
   local status
@@ -310,8 +312,8 @@ function Ui:buildLeft(pane, rec, catalog, index)
         .. "Set the filters of a cauldron, or use recipes.unlock <item> in the console."
     )
   end
-  if rec:anyUnlocked() then
-    failedLine(pane, index)
+  if rec:anyUnlocked() and not model.selected then
+    failedLine(pane, index) -- with a product selected, the right pane says it
   end
   grid = pane:grid()
   fill()
@@ -385,6 +387,9 @@ end
 function Ui:buildRight(pane, rec, catalog, index)
   local model = self.model
   if not model.selected then
+    if self.noProducts then
+      return nil
+    end
     pane:text("Pick a product on the left"):color(GOLD[1], GOLD[2], GOLD[3])
     sentence(pane, "Its recipes show here.")
     return nil
@@ -462,9 +467,7 @@ function Ui:buildRecipes(pane, rec, catalog, index)
       count = string.format("%d of %s", total, count)
     end
     local base = MODE_LABEL[mode] .. ", " .. count
-    if counts.discovered > 0 then
-      base = base .. string.format(", %d discovered", counts.discovered)
-    end
+    base = base .. string.format(", %d discovered", counts.discovered)
     return statusText(base, waiting and percent or nil)
   end
   local status = smallLine(pane, statusLine(result.total, unfiltered, index:progress()))
@@ -508,7 +511,7 @@ function Ui:buildRecipes(pane, rec, catalog, index)
       end
     end
   end
-  if rec:otherVisible(product) then
+  if rec:anyUnlocked() then
     failedLine(pane, index)
   end
   pane:space(SECTION_GAP)
