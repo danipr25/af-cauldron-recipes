@@ -5,6 +5,7 @@
 -- The counts are pure functions of the record, the catalog and the index (sheet.productSummary, sheet.usedIn); the
 -- section itself is game-facing through the AF Mod Loader API. Not verified in game yet.
 local listing = require("listing")
+local style = require("style")
 
 local sheet = {}
 
@@ -13,9 +14,11 @@ Sheet.__index = Sheet
 
 local MODES = { "normal", "advanced" }
 local MODE_BUTTON = { normal = "Normal", advanced = "Advanced" }
-local SECTION_GAP = 16
-local GOLD = { 1.0, 0.75, 0.2 }
-local MUTED = { 0.88, 0.82, 0.70 }
+-- Room between the lines of the section (the rows touched each other in game), and before each count so it does not
+-- touch its button (section rows have no row:space, so the count text starts with spaces).
+local LINE_GAP = 8
+local COUNT_INDENT = "  "
+local dark = style.dark
 
 local function plural(count, word)
   return string.format("%d %s%s", count, word, count == 1 and "" or "s")
@@ -111,23 +114,26 @@ function Sheet:build(section, item)
     return
   end
 
-  section:space(SECTION_GAP)
-  section:text("Cauldron")
-  for _, entry in ipairs(modes) do
+  section:divider("Cauldron")
+  for number, entry in ipairs(modes) do
+    if number > 1 then
+      section:space(LINE_GAP)
+    end
     local row = section:row()
     row:button(MODE_BUTTON[entry.mode], function()
       self.deps.ui:showProduct(item, entry.mode)
     end, { small = true })
-    row:text(plural(entry.counts.total, "recipe") .. soFarProduct, { size = "small" }):color(GOLD[1], GOLD[2], GOLD[3])
-    row
-      :text(string.format(", %d discovered", entry.counts.discovered), { size = "small" })
-      :color(MUTED[1], MUTED[2], MUTED[3])
+    dark(row:text(COUNT_INDENT .. plural(entry.counts.total, "recipe") .. soFarProduct, { size = "small" }))
+    dark(row:text(string.format(", %d discovered", entry.counts.discovered), { size = "small" }))
   end
   if usedIn > 0 then
+    if #modes > 0 then
+      section:space(LINE_GAP)
+    end
     local soFar = rec:anyUnlocked() and finding(index) and " so far" or ""
-    section
-      :text(string.format("Ingredient in %s%s", plural(usedIn, "cauldron recipe"), soFar), { size = "small" })
-      :color(MUTED[1], MUTED[2], MUTED[3])
+    dark(
+      section:text(string.format("Ingredient in %s%s", plural(usedIn, "cauldron recipe"), soFar), { size = "small" })
+    )
   end
 end
 

@@ -153,7 +153,17 @@ With API 0.1.1 and the two-column layout (branch `feature/recipes-layout`), test
 - Item sheet: the "Cauldron" heading with a gap above it, and the Normal and Advanced buttons open the Recipes tab on that product and mode. Items without recipes show no section.
 - UE4SS.log had no warnings from the UI (no "could not", "failed" or "after its page was rebuilt" lines from either mod).
 
+## Verified in game 1.1.5024 (2026-10-23, mod 0.1.2, API 0.1.2)
+
+Seen by the user (screenshots), with no mod error lines in UE4SS.log:
+
+- The new look: dark text on every text (list-row texts included, through `text:color`), the column divider, the three horizontal dividers in the panes, Normal two and Advanced three recipes per row with `row:divider()` between them, the status line without the mode, the page arrows and the filter row, and `section:divider("Cauldron")` with the Normal and Advanced buttons on the item sheet. The game's scrollbar, search box and small buttons show and work.
+- Show advanced / Show normal: the menu no longer flickers, and the search box keeps filtering after the switch (the left pane is cleared and rebuilt from its own button, with the input in it).
+- The extra spacing (8 between the item sheet lines, a leading two spaces before the counts, 8 around the page label and after "Filter:") looks right to the user.
+
 ## Not verified yet
+
+- The mode and progress status lines staying right after a Show advanced / Show normal switch while the recipe index is still running (the 2026-10-23 look test did not cover it).
 
 Each of these ships disabled or marked as unverified until it is checked in game.
 

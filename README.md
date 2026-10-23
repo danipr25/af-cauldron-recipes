@@ -2,7 +2,7 @@
 
 A mod for **Alchemy Factory** that shows cauldron recipes in the game. It adds a **Recipes** tab to the V menu (the item catalog) and a Cauldron section to each item's sheet. It shows the recipes you have discovered and, if you unlock them, all the others. Recipes come from the game itself, not from a list in the mod.
 
-Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.1 or newer (0.1.x).
+Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.2 or newer (0.1.x).
 
 Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
 
@@ -27,7 +27,7 @@ gh attestation verify <file> --repo danipr25/af-cauldron-recipes --signer-workfl
 **Recipes tab** (V menu, after Ledger):
 
 - Two columns. On the left, a grid of the products that have recipes you can see. Use the search box to find one, and the button at the top to switch between the Normal and Advanced cauldron.
-- Click a product to see its recipes on the right, 40 per page, two to a row. They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
+- Click a product to see its recipes on the right, two to a row in Normal and three in Advanced (40 and 42 per page). They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
 - **Filter:** **+ Add** picks an ingredient, and only the recipes that use it stay. You can pick as many ingredients as the cauldron has slots. Click an ingredient in the filter to remove it, or **Clear** to remove them all.
 
 **Item sheet** (V menu, Materials and Goods):
