@@ -54,6 +54,34 @@ return {
     testAPageWithoutRecipesHasNoRows = function()
       lu.assertEquals(listing.rows({}, 2), {})
     end,
+
+    testThreeToARowLeavesAShortLastRow = function()
+      local items = {}
+      for number = 1, 4 do
+        items[number] = { packed = number, discovered = false }
+      end
+      lu.assertEquals(listing.rows(items, 3), {
+        { heading = true, discovered = false },
+        { recipes = { 1, 2, 3 }, discovered = false },
+        { recipes = { 4 }, discovered = false },
+      })
+    end,
+
+    testEveryModesPageIsWholeRows = function()
+      for mode, perRow in pairs(listing.PER_ROW) do
+        local size = listing.PAGE_SIZE[mode]
+        lu.assertEquals(size % perRow, 0)
+        local indexed = {}
+        for number = 1, size * 2 do
+          indexed[number] = number
+        end
+        local rows = listing.rows(listing.page({}, indexed, 1, size).items, perRow)
+        lu.assertEquals(#rows, 1 + size // perRow) -- the heading, then only full rows
+        lu.assertEquals(#rows[#rows].recipes, perRow)
+      end
+      lu.assertEquals({ listing.PER_ROW.advanced, listing.PAGE_SIZE.advanced }, { 3, 42 })
+      lu.assertEquals({ listing.PER_ROW.normal, listing.PAGE_SIZE.normal }, { 2, 40 })
+    end,
   },
 
   TestListing = {

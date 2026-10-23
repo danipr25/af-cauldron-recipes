@@ -113,4 +113,4 @@ end
 say("Copying " .. MOD_SOURCE .. " to " .. target)
 run('xcopy "' .. MOD_SOURCE .. '" "' .. target .. '" /E /I /Y /Q', "copying " .. MOD_FOLDER)
 
-say("Done. Start the game and look for '[af-cauldron-recipes] Cauldron Recipes 0.1.1 loaded' in UE4SS.log.")
+say("Done. Start the game and look for '[af-cauldron-recipes] Cauldron Recipes 0.1.2 loaded' in UE4SS.log.")

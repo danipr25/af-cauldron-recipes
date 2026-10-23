@@ -2,6 +2,16 @@
 
 All notable changes to Cauldron Recipes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). While the version is 0.x, a minor version may change how the mod behaves and says how here.
 
+## [0.1.2] - 2026-10-23
+
+- The Recipes tab follows the game's look: all its text is the game's dark text color (no gold, cream or white), a divider between the two columns, between the mode and the search box, and between the product, the filter and the recipe list, and a vertical line between the recipes of a row instead of a gap.
+- Advanced recipes are listed three to a row, 42 per page (Normal stays two to a row, 40 per page): a page size is a whole number of rows. A page that shows both Discovered and Other recipes can still end on a short row of each kind.
+- The status line under the product's name no longer repeats the cauldron mode (the left side shows it): for example "3 of 25158 recipes, 0 discovered".
+- A little more room between the lines of the item sheet section and around the page label and the filter row.
+- The Cauldron section on item sheets has the game's divider with the heading "Cauldron", and its text is dark.
+- Needs AF Mod Loader API 0.1.2 or later (dividers, column divider, game scrollbar and search box, page padding).
+- Switching between Normal and Advanced no longer flickers the menu: only the two columns are rebuilt, not the whole page.
+
 ## [0.1.1] - 2026-10-23
 
 - The Recipes tab has two columns: the product grid on the left, the recipes of the clicked product on the right. Clicking a product rebuilds only the right side, not the whole page, so the grid keeps its scroll.

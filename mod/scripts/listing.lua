@@ -4,6 +4,12 @@ local indexModule = require("index")
 
 local listing = {}
 
+-- Recipes per list row, and recipes per page, by cauldron mode. Each page size is a whole number of rows: Normal 2
+-- per row (40 is 20 rows), Advanced 3 per row (42 is 14 rows), because three Advanced recipes fit the pane's width.
+-- A page with both Discovered and Other recipes starts a new row at the second kind, so it can end on a short row.
+listing.PER_ROW = { normal = 2, advanced = 3 }
+listing.PAGE_SIZE = { normal = 40, advanced = 42 }
+
 -- The two lists behind a product's recipes in one mode, with the player's visibility settings applied: the
 -- discovered ones in the order to show them, and the index's (nil while there is none, or when the other recipes of
 -- the product are not shown). rec is a record, catalog the item catalog, index the recipe index.
