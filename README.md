@@ -2,7 +2,7 @@
 
 A mod for **Alchemy Factory** that shows cauldron recipes in the game. It adds a **Recipes** tab to the V menu (the item catalog) and a Cauldron section to each item's sheet. It shows the recipes you have discovered and, if you unlock them, all the others. Recipes come from the game itself, not from a list in the mod.
 
-Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.0 or newer (0.1.x).
+Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.1 or newer (0.1.x).
 
 Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
 
