@@ -227,6 +227,7 @@ function Ui:rebuildPanes()
   end
   left:clear()
   right:clear()
+  self.noProducts = nil -- set by buildLeft; must not keep the previous mode's value if it fails
   local ok, result = xpcall(self.buildLeft, debug.traceback, self, left, rec, catalog, index)
   if ok then
     self.current.left = result
