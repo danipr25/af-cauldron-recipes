@@ -21,6 +21,10 @@ What the game state does keep (`ABeltTDGameStateBase.UnlockData`, read in game o
 
 `SavedRecipeName` was `None`.
 
+## The mod's record format
+
+The record file of a world (`mods\.data\af-cauldron-recipes-<world>.json`) is version 2 since mod 0.1.3. Version 2 adds `favorites`, a list of `{ mode, inputs (sorted), product }` like the discovered entries (a recipe is identified by its mode and sorted inputs; the product is kept for display and refreshed against the game's own answer when a world loads). The version was raised, instead of adding an optional field to version 1, because mod 0.1.2 reads only version 1 and writes it back without unknown fields: with the same version number it would silently drop the favorites at its next save. With version 2 a downgraded mod treats the file as written by a newer mod and never writes to it. Version 1 files load unchanged (no favorites) and are written as version 2 the next time the record is saved. Favorites follow the visibility of their recipe (a locked product hides them, nothing is deleted).
+
 ## Cauldrons
 
 Two Blueprint classes, each with a `CauldronFacility` component (`UCauldronFacilityComponent`):

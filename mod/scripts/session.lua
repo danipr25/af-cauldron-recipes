@@ -197,7 +197,7 @@ function Session:validateRecord()
     return
   end
   local oracle = catalog.newOracle()
-  local changed, unknown = record:revalidate(function(name)
+  local changed, unknown, unknownFavorites = record:revalidate(function(name)
     return catalog.ingredientIndex[name] ~= nil
   end, function(name)
     return catalog.productSet[name] == true
@@ -218,6 +218,15 @@ function Session:validateRecord()
         "%d saved recipe(s) use items that are not cauldron ingredients or products in this version of the game: "
           .. "kept, but not shown",
         unknown
+      )
+    )
+  end
+  if unknownFavorites > 0 then
+    self.deps.log(
+      string.format(
+        "%d favorite recipe(s) use items that are not cauldron ingredients or products in this version of the game: "
+          .. "kept, but not shown",
+        unknownFavorites
       )
     )
   end

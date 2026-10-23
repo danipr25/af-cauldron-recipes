@@ -40,6 +40,9 @@ local function summaryFixture(options)
     otherVisible = function()
       return options.otherVisible == true
     end,
+    favoritesFor = function()
+      return {}
+    end,
     discoveredFor = function(_, mode)
       local list = {}
       for _, entry in ipairs(options.discovered or {}) do

@@ -2,6 +2,16 @@
 
 All notable changes to Cauldron Recipes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). While the version is 0.x, a minor version may change how the mod behaves and says how here.
 
+## [0.1.3] - Unreleased
+
+- Favorite recipes: a star after each recipe in the Recipes tab. A click marks or unmarks it, changing the star in place without rebuilding the list. Favorites are kept per world, in the world's record in `mods\.data`, never in the save.
+- A product's recipes now start with **Favorites (n)**, then **Discovered (n)** and **Other recipes (n)**. A recipe is listed once, under the first heading that has it. The status line still counts all discovered recipes.
+- A **Favorites** button in the left pane shows every favorite of the current cauldron, grouped by product and paged. The button reads **Back to recipes** while the view is open. Switching between Normal and Advanced keeps the view.
+- A favorite is shown only where its recipe would be shown: locking a product (or `recipes.lockall`) hides its favorites without removing them, and unlocking brings them back. Favorites that use items the game no longer has stay in the record, hidden, and are counted in the log.
+- The record file is now version 2 (it holds the favorites). Version 1 files load as they are. Cauldron Recipes 0.1.2 or earlier treats a version 2 file as written by a newer mod and will not save recipes for that world until it is updated.
+- In a world whose record cannot be saved, no stars are shown, the Favorites button is hidden, and the notice says discovered recipes and favorites are not saved.
+- Needs AF Mod Loader API 0.1.3 or later (`row:mark`, the clickable star).
+
 ## [0.1.2] - 2026-10-23
 
 - The Recipes tab follows the game's look: all its text is the game's dark text color (no gold, cream or white), a divider between the two columns, between the mode and the search box, and between the product, the filter and the recipe list, and a vertical line between the recipes of a row instead of a gap.

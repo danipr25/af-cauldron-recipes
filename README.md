@@ -2,7 +2,7 @@
 
 A mod for **Alchemy Factory** that shows cauldron recipes in the game. It adds a **Recipes** tab to the V menu (the item catalog) and a Cauldron section to each item's sheet. It shows the recipes you have discovered and, if you unlock them, all the others. Recipes come from the game itself, not from a list in the mod.
 
-Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.2 or newer (0.1.x).
+Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.3 or newer (0.1.x).
 
 Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
 
@@ -27,7 +27,8 @@ gh attestation verify <file> --repo danipr25/af-cauldron-recipes --signer-workfl
 **Recipes tab** (V menu, after Ledger):
 
 - Two columns. On the left, a grid of the products that have recipes you can see. Use the search box to find one, and the button at the top to switch between the Normal and Advanced cauldron.
-- Click a product to see its recipes on the right, two to a row in Normal and three in Advanced (40 and 42 per page). They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
+- Click a product to see its recipes on the right, two to a row in Normal and three in Advanced (40 and 42 per page). They are split into **Favorites**, **Discovered** and **Other recipes**. The arrows under the product's name change the page.
+- **Favorites:** a star after each recipe. Click it to mark the recipe as a favorite (click again to remove it). The star changes at once and the list is not rebuilt, so favorites move to the top the next time the list is built (another page, product, filter or mode). The **Favorites** button at the top of the left column shows all your favorites for the current cauldron, grouped by product; the same button, now called **Back to recipes**, leaves that view. Favorites follow the same rules as the recipes: if a recipe is hidden by a lock (see the commands below), its favorite is hidden too and comes back when the recipe is shown again.
 - **Filter:** **+ Add** picks an ingredient, and only the recipes that use it stay. You can pick as many ingredients as the cauldron has slots. Click an ingredient in the filter to remove it, or **Clear** to remove them all.
 
 **Item sheet** (V menu, Materials and Goods):
@@ -42,6 +43,7 @@ The first world you load after starting the game indexes every recipe in the bac
 
 - **Discovered**: every recipe you set on a cauldron (all slots filled). Cauldrons already placed when the mod first runs count too.
 - **Unlocked**: whatever you unlock with the commands below.
+- **Favorites**: the recipes you starred, kept per world in the same file.
 
 **Console commands.** Open the console with F10 or the key left of 1. `af.help` lists them all. `<item>` is the internal name, the name shown in game, or part of either. Use quotes for names with spaces.
 
@@ -55,7 +57,7 @@ The first world you load after starting the game indexes every recipe in the bac
 | `recipes.safe-lock <item>` | Hides an item's recipes except the discovered ones. |
 | `recipes.status` | Shows counts and the index progress. |
 
-**What it touches.** It writes one file per world, `<game>\mods\.data\af-cauldron-recipes-<world>.json`. It never writes to your save, changes no game data and uses no network.
+**What it touches.** It writes one file per world, `<game>\mods\.data\af-cauldron-recipes-<world>.json`, with the discovered recipes, your favorites and what you unlocked or locked. From 0.1.3 the file is version 2: Cauldron Recipes 0.1.2 or earlier opening it treats it as written by a newer mod, does not write to it and tracks nothing, so your favorites are not lost, but nothing is saved until you update again. If the record of a world cannot be saved, the tab says so and shows no stars. It never writes to your save, changes no game data and uses no network.
 
 ## Development
 

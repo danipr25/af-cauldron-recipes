@@ -120,9 +120,19 @@ return {
       lu.assertStrContains(f.logs[1], "broken-1000")
     end,
 
+    testAVersion1RecordLoadsAndIsSavedAsTheCurrentVersion = function()
+      local f = fixture()
+      f.disk[FILE] = f.json.encode({ version = 1, world = "W 1", discovered = {} })
+      local rec, status = f.store:load("W_1", "W 1")
+      lu.assertEquals(status, "loaded")
+      lu.assertNil(rec.readOnly)
+      lu.assertTrue(f.store:save("W_1", rec))
+      lu.assertEquals(f.json.decode(f.disk[FILE]).version, record.VERSION)
+    end,
+
     testARecordFromANewerModIsNeverWritten = function()
       local f = fixture()
-      f.disk[FILE] = f.json.encode({ version = 2, world = "W 1", things = {} })
+      f.disk[FILE] = f.json.encode({ version = 3, world = "W 1", things = {} })
       local before = f.disk[FILE]
       local rec, status = f.store:load("W_1", "W 1")
       lu.assertEquals(status, "newer")
@@ -158,7 +168,7 @@ return {
 
     testTheCopyFollowsTheSameRulesAsTheFile = function()
       local newer = fixture()
-      newer.disk[FILE .. ".tmp"] = newer.json.encode({ version = 2, world = "W 1" })
+      newer.disk[FILE .. ".tmp"] = newer.json.encode({ version = 3, world = "W 1" })
       local rec, status = newer.store:load("W_1", "W 1")
       lu.assertEquals({ status, rec.readOnly }, { "newer", "newer" })
       lu.assertNil(newer.disk[FILE])

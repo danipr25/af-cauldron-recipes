@@ -1,9 +1,12 @@
--- The mod's own record for one world: which recipes the player has seen on their cauldrons ("discovered"), and which
--- recipes are shown or hidden. Pure Lua with no game access, so it is tested without the game (tests/test_record.lua).
+-- The mod's own record for one world: which recipes the player has seen on their cauldrons ("discovered"), which
+-- recipes are shown or hidden, and which recipes the player starred ("favorites").
+-- Pure Lua with no game access, so it is tested without the game (tests/test_record.lua).
 -- The rules are listed in the README (what the commands do).
 local record = {}
 
-record.VERSION = 1
+-- Version 2 added the favorites. A mod that only knows version 1 would drop the field when it writes, so it treats a
+-- version 2 file as written by a newer mod and leaves it alone (read only).
+record.VERSION = 2
 record.SLOTS = { normal = 3, advanced = 2 } -- ingredients per cauldron: Normal 3, Advanced 2
 
 local Record = {}
@@ -45,6 +48,8 @@ function record.new(title)
     world = title,
     discovered = {}, -- entries { mode, inputs (sorted), product, seen }, in the order they were found
     byKey = {},
+    favorites = {}, -- entries { mode, inputs (sorted), product }, in the order starred (product: display only)
+    favByKey = {},
     all = false,
     unlocked = {}, -- sets of product names
     locked = {},
@@ -70,12 +75,28 @@ local function readList(value)
   return set
 end
 
+-- Is this decoded recipe entry well formed? Returns nil, or why not.
+local function checkEntry(entry)
+  if type(entry) ~= "table" or record.SLOTS[entry.mode] == nil or type(entry.product) ~= "string" then
+    return "bad recipe entry"
+  end
+  if type(entry.inputs) ~= "table" or #entry.inputs ~= record.SLOTS[entry.mode] then
+    return "bad recipe inputs"
+  end
+  for _, name in ipairs(entry.inputs) do
+    if type(name) ~= "string" then
+      return "bad recipe inputs"
+    end
+  end
+  return nil
+end
+
 -- Builds a record from decoded file data. Returns the record, or nil and why the data is not usable.
 function record.decode(data, title)
   if type(data) ~= "table" then
     return nil, "not a table"
   end
-  if data.version ~= record.VERSION then
+  if data.version ~= 1 and data.version ~= record.VERSION then
     return nil, "unknown version"
   end
   if type(data.world) ~= "string" then
@@ -93,22 +114,25 @@ function record.decode(data, title)
     end
     self[target] = set
   end
-  if data.discovered ~= nil and type(data.discovered) ~= "table" then
-    return nil, "bad list 'discovered'"
+  for _, field in ipairs({ "discovered", "favorites" }) do
+    if data[field] ~= nil and type(data[field]) ~= "table" then
+      return nil, "bad list '" .. field .. "'"
+    end
   end
   for _, entry in ipairs(data.discovered or {}) do
-    if type(entry) ~= "table" or record.SLOTS[entry.mode] == nil or type(entry.product) ~= "string" then
-      return nil, "bad recipe entry"
-    end
-    if type(entry.inputs) ~= "table" or #entry.inputs ~= record.SLOTS[entry.mode] then
-      return nil, "bad recipe inputs"
-    end
-    for _, name in ipairs(entry.inputs) do
-      if type(name) ~= "string" then
-        return nil, "bad recipe inputs"
-      end
+    local problem = checkEntry(entry)
+    if problem then
+      return nil, problem
     end
     self:addEntry(entry.mode, entry.inputs, entry.product, type(entry.seen) == "string" and entry.seen or "load")
+  end
+  -- Version 1 had no favorites.
+  for _, entry in ipairs(data.version >= 2 and data.favorites or {}) do
+    local problem = checkEntry(entry)
+    if problem then
+      return nil, problem
+    end
+    self:addFavorite(entry.mode, entry.inputs, entry.product)
   end
   return self
 end
@@ -120,10 +144,15 @@ function Record:toTable()
     discovered[index] =
       { mode = entry.mode, inputs = sortedCopy(entry.inputs), product = entry.product, seen = entry.seen }
   end
+  local favorites = {}
+  for index, entry in ipairs(self.favorites) do
+    favorites[index] = { mode = entry.mode, inputs = sortedCopy(entry.inputs), product = entry.product }
+  end
   return {
     version = record.VERSION,
     world = self.world,
     discovered = discovered,
+    favorites = favorites,
     all = self.all,
     unlocked = keysOf(self.unlocked),
     locked = keysOf(self.locked),
@@ -143,6 +172,66 @@ function Record:addEntry(mode, inputs, product, seen)
   self.discovered[#self.discovered + 1] = entry
   self.byKey[key] = entry
   return entry, true
+end
+
+-- Adds a favorite without looking at visibility. Returns the entry and whether it is new.
+function Record:addFavorite(mode, inputs, product)
+  local sorted = sortedCopy(inputs)
+  local key = keyOf(mode, sorted)
+  local entry = self.favByKey[key]
+  if entry then
+    return entry, false
+  end
+  entry = { mode = mode, inputs = sorted, product = product }
+  self.favorites[#self.favorites + 1] = entry
+  self.favByKey[key] = entry
+  return entry, true
+end
+
+function Record:isFavorite(mode, inputs)
+  return self.favByKey[keyOf(mode, sortedCopy(inputs))] ~= nil
+end
+
+-- Stars the recipe, or takes the star away. `product` is only kept for display. Returns whether it is a favorite now.
+function Record:toggleFavorite(mode, inputs, product)
+  local key = keyOf(mode, sortedCopy(inputs))
+  local entry = self.favByKey[key]
+  if not entry then
+    self:addFavorite(mode, inputs, product)
+    return true
+  end
+  self.favByKey[key] = nil
+  for index, candidate in ipairs(self.favorites) do
+    if candidate == entry then
+      table.remove(self.favorites, index)
+      break
+    end
+  end
+  return false
+end
+
+-- Is this favorite shown? Only when its recipe would be shown anyway: discovered with its product's discovered
+-- recipes shown, or its product's other recipes shown. A locked recipe keeps its star, hidden until it is shown again.
+function Record:favoriteVisible(entry)
+  if entry.unknown then
+    return false
+  end
+  local seen = self.byKey[keyOf(entry.mode, entry.inputs)]
+  if seen and not seen.unknown and self:discoveredVisible(entry.product) then
+    return true
+  end
+  return self:otherVisible(entry.product)
+end
+
+-- The visible favorites of this mode (and of this product, when given), in the order they were starred.
+function Record:favoritesFor(mode, product)
+  local list = {}
+  for _, entry in ipairs(self.favorites) do
+    if entry.mode == mode and (product == nil or entry.product == product) and self:favoriteVisible(entry) then
+      list[#list + 1] = entry
+    end
+  end
+  return list
 end
 
 -- The entry of this recipe, or nil.
@@ -202,30 +291,37 @@ function Record:anyUnlocked()
   return self.all or next(self.unlocked) ~= nil
 end
 
--- Marks which entries use names that the current game data no longer has (they stay in the file, and are not
--- shown), and refreshes the stored product of the others. `known(name)` says whether an item is a cauldron
--- ingredient now, `knownProduct(name)` whether it can be a product, and `oracle(mode, inputs)` is the game's own
--- answer (or nil). Returns whether any stored product changed, and how many entries are not shown.
+-- Marks which entries (discovered and favorites) use names that the current game data no longer has (they stay in
+-- the file, and are not shown), and refreshes the stored product of the others. `known(name)` says whether an item
+-- is a cauldron ingredient now, `knownProduct(name)` whether it can be a product, and `oracle(mode, inputs)` is the
+-- game's own answer (or nil). Returns whether any stored product changed, how many discovered entries are not shown,
+-- and how many favorites are not shown.
 function Record:revalidate(known, knownProduct, oracle)
-  local changed, unknown = false, 0
-  for _, entry in ipairs(self.discovered) do
-    local usable = knownProduct(entry.product)
-    for _, name in ipairs(entry.inputs) do
-      usable = usable and known(name)
-    end
-    if usable then
-      entry.unknown = nil
-      local product = oracle(entry.mode, entry.inputs)
-      if product and product ~= entry.product and knownProduct(product) then
-        entry.product = product
-        changed = true
+  local changed = false
+  local function check(list)
+    local unknown = 0
+    for _, entry in ipairs(list) do
+      local usable = knownProduct(entry.product)
+      for _, name in ipairs(entry.inputs) do
+        usable = usable and known(name)
       end
-    else
-      entry.unknown = true
-      unknown = unknown + 1
+      if usable then
+        entry.unknown = nil
+        local product = oracle(entry.mode, entry.inputs)
+        if product and product ~= entry.product and knownProduct(product) then
+          entry.product = product
+          changed = true
+        end
+      else
+        entry.unknown = true
+        unknown = unknown + 1
+      end
     end
+    return unknown
   end
-  return changed, unknown
+  local unknown = check(self.discovered)
+  local unknownFavorites = check(self.favorites)
+  return changed, unknown, unknownFavorites
 end
 
 -- Console commands. Each one changes the record and says nothing; the caller compares snapshots to tell the player
