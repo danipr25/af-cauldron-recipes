@@ -14,6 +14,10 @@ Sheet.__index = Sheet
 
 local MODES = { "normal", "advanced" }
 local MODE_BUTTON = { normal = "Normal", advanced = "Advanced" }
+-- Room between the lines of the section (the rows touched each other in game), and before each count so it does not
+-- touch its button (section rows have no row:space, so the count text starts with spaces).
+local LINE_GAP = 8
+local COUNT_INDENT = "  "
 local dark = style.dark
 
 local function plural(count, word)
@@ -111,15 +115,21 @@ function Sheet:build(section, item)
   end
 
   section:divider("Cauldron")
-  for _, entry in ipairs(modes) do
+  for number, entry in ipairs(modes) do
+    if number > 1 then
+      section:space(LINE_GAP)
+    end
     local row = section:row()
     row:button(MODE_BUTTON[entry.mode], function()
       self.deps.ui:showProduct(item, entry.mode)
     end, { small = true })
-    dark(row:text(plural(entry.counts.total, "recipe") .. soFarProduct, { size = "small" }))
+    dark(row:text(COUNT_INDENT .. plural(entry.counts.total, "recipe") .. soFarProduct, { size = "small" }))
     dark(row:text(string.format(", %d discovered", entry.counts.discovered), { size = "small" }))
   end
   if usedIn > 0 then
+    if #modes > 0 then
+      section:space(LINE_GAP)
+    end
     local soFar = rec:anyUnlocked() and finding(index) and " so far" or ""
     dark(
       section:text(string.format("Ingredient in %s%s", plural(usedIn, "cauldron recipe"), soFar), { size = "small" })

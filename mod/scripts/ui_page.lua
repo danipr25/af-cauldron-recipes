@@ -19,6 +19,8 @@ Ui.__index = Ui
 local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
 local OTHER_MODE = { normal = "advanced", advanced = "normal" }
 local SWITCH_LABEL = { normal = "Show advanced", advanced = "Show normal" }
+-- A small gap between a label and the buttons next to it in a row (they touched in game).
+local ROW_GAP = 8
 
 local dark = style.dark
 
@@ -380,6 +382,7 @@ function Ui:buildFilterRow(pane, rec, catalog, index)
   local model = self.model
   local row = pane:row()
   dark(row:text("Filter:", { size = "small" }))
+  row:space(ROW_GAP)
   for i, position in ipairs(model.filter) do
     -- A click removes this one entry (the same ingredient twice loses one), then the list starts at page 1.
     row:item(catalog.ingredients[position], 1, {
@@ -510,7 +513,9 @@ function Ui:buildRecipes(pane, rec, catalog, index)
   local function pageLabel(pages)
     return string.format("%d / %d", result.page, pages)
   end
+  nav:space(ROW_GAP)
   local pageText = dark(nav:text(pageLabel(result.pages), { size = "small" }))
+  nav:space(ROW_GAP)
   local following = nav:arrow("next", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
     self:rebuildRight()
