@@ -88,4 +88,30 @@ function listing.page(discovered, indexed, requested, size)
   return { total = total, pages = pages, page = page, items = items }
 end
 
+-- Lays the items of a page out as list rows: each heading ("Discovered", "Other recipes") alone in its row, then the
+-- recipes `perRow` to a row. A row never mixes the two kinds, and a kind that ends with an odd recipe leaves a short
+-- row. `items` are the entries of listing.page. Returns a list of { heading = true, discovered = boolean } and
+-- { recipes = { packed, ... }, discovered = boolean }.
+function listing.rows(items, perRow)
+  local rows = {}
+  local open = nil -- the recipe row being filled
+  local kind = nil -- the kind of the last item: true (discovered) or false (other)
+  for _, item in ipairs(items) do
+    if item.discovered ~= kind then
+      kind = item.discovered
+      open = nil
+      rows[#rows + 1] = { heading = true, discovered = kind }
+    end
+    if not open then
+      open = { recipes = {}, discovered = kind }
+      rows[#rows + 1] = open
+    end
+    open.recipes[#open.recipes + 1] = item.packed
+    if #open.recipes == perRow then
+      open = nil
+    end
+  end
+  return rows
+end
+
 return listing
