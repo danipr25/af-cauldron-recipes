@@ -149,7 +149,8 @@ end
 
 -- Writes the record: to a new file first, then renamed over the old one (os.rename cannot replace a file, so the
 -- old one is removed just before). If the game stops in between, the finished copy is used at the next load.
--- Returns true when the file is written.
+-- Returns true when the file is written. When it returns false, a second value "pending" says the finished copy
+-- `<file>.tmp` holds the new record (the last rename failed), so the next load uses it; without it nothing changed.
 function Store:save(key, rec)
   if rec.readOnly then
     return false
@@ -198,7 +199,7 @@ function Store:save(key, rec)
         .. temporary
         .. " will be used the next time the world is loaded"
     )
-    return false
+    return false, "pending"
   end
   return true
 end

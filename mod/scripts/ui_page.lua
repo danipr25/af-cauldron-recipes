@@ -2,10 +2,10 @@
 -- grid of products; on the right the recipes of the product the player clicked, in pages, a few recipes to a list row
 -- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact), each
 -- followed by a star that marks it as a favorite. A Favorites button in the left pane swaps the right pane for all the
--- favorites of the mode, grouped by product. A click
--- on the right only rebuilds the right pane, so the product grid keeps its scroll; switching the mode rebuilds both
--- panes in place. Game-facing through the AF Mod Loader API's page widgets (page:columns, pane:clear, dividers; see its
--- docs/api.md and docs/widgets.md for what is verified in game): this look has not run in game with this mod yet.
+-- favorites of the mode, grouped by product. A click on the right only rebuilds the right pane, so the product grid
+-- keeps its scroll; switching the mode rebuilds both panes in place. Game-facing through the AF Mod Loader API's page widgets
+-- (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is verified in game): this look
+-- has not run in game with this mod yet.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
@@ -190,7 +190,8 @@ function Ui:build(page)
   if rec.readOnly then
     sentence(
       page,
-      "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes and favorites are not saved."
+      "Recipes cannot be saved for this world. See UE4SS.log. "
+        .. "Discovered recipes are not tracked and favorites are not available."
     )
   end
   local left, right = table.unpack(page:columns({ 1, 2 }, { divider = true }))
@@ -640,16 +641,24 @@ end
 
 -- A click on a star: toggles the favorite in the record, saves, and changes the star in place (the pane is not
 -- rebuilt, so nothing jumps; the order follows on the next page, product, filter or mode change). If the record
--- cannot be saved the star goes back.
+-- could not be saved at all the star goes back; if only the last step failed, the new state is kept (the finished
+-- copy is used at the next load) and the next save tries again.
 function Ui:toggleFavorite(star, mode, inputs, product)
   local world, rec = self.deps.session:current()
   if not world or not rec or rec.readOnly then
     return
   end
   local was = rec:isFavorite(mode, inputs)
-  local now = rec:toggleFavorite(mode, inputs, product)
-  if not self.deps.session:save() then
-    rec:toggleFavorite(mode, inputs, product) -- back to how it was
+  local now, position = rec:toggleFavorite(mode, inputs, product)
+  local saved, stage = self.deps.session:save()
+  if not saved and stage == "pending" then
+    self.deps.log("could not finish saving the favorite. The star stays and saving is retried at the next change")
+  elseif not saved then
+    if was then
+      rec:addFavorite(mode, inputs, product, position) -- back where it was
+    else
+      rec:toggleFavorite(mode, inputs, product)
+    end
     star:set(was and STAR_ON or STAR_OFF)
     self.deps.log("could not save the favorite, so the star was put back. See the lines above in UE4SS.log")
     return
@@ -667,7 +676,17 @@ function Ui:buildFavorites(pane, rec, catalog)
   model.pageIndex = result.page
   dark(pane:text("Favorites"))
   if result.total == 0 then
-    sentence(pane, "No favorites yet. Click the star next to a recipe to add it here.")
+    if #rec.favorites > 0 then
+      sentence(
+        pane,
+        string.format(
+          "No favorites to show for the %s. Favorites of hidden recipes come back when their recipes are shown again.",
+          MODE_LABEL[mode]:lower()
+        )
+      )
+    else
+      sentence(pane, "No favorites yet. Click the star next to a recipe to add it here.")
+    end
     return nil
   end
   smallLine(pane, plural(result.total, "favorite recipe"))

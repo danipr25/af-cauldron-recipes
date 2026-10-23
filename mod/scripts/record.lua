@@ -175,7 +175,7 @@ function Record:addEntry(mode, inputs, product, seen)
 end
 
 -- Adds a favorite without looking at visibility. Returns the entry and whether it is new.
-function Record:addFavorite(mode, inputs, product)
+function Record:addFavorite(mode, inputs, product, at)
   local sorted = sortedCopy(inputs)
   local key = keyOf(mode, sorted)
   local entry = self.favByKey[key]
@@ -183,7 +183,7 @@ function Record:addFavorite(mode, inputs, product)
     return entry, false
   end
   entry = { mode = mode, inputs = sorted, product = product }
-  self.favorites[#self.favorites + 1] = entry
+  table.insert(self.favorites, math.min(at or #self.favorites + 1, #self.favorites + 1), entry)
   self.favByKey[key] = entry
   return entry, true
 end
@@ -192,7 +192,8 @@ function Record:isFavorite(mode, inputs)
   return self.favByKey[keyOf(mode, sortedCopy(inputs))] ~= nil
 end
 
--- Stars the recipe, or takes the star away. `product` is only kept for display. Returns whether it is a favorite now.
+-- Stars the recipe, or takes the star away. `product` is only kept for display. Returns whether it is a favorite now,
+-- and, when the star was taken away, the position the favorite had (pass it to addFavorite to put it back).
 function Record:toggleFavorite(mode, inputs, product)
   local key = keyOf(mode, sortedCopy(inputs))
   local entry = self.favByKey[key]
@@ -201,13 +202,15 @@ function Record:toggleFavorite(mode, inputs, product)
     return true
   end
   self.favByKey[key] = nil
+  local position
   for index, candidate in ipairs(self.favorites) do
     if candidate == entry then
+      position = index
       table.remove(self.favorites, index)
       break
     end
   end
-  return false
+  return false, position
 end
 
 -- Is this favorite shown? Only when its recipe would be shown anyway: discovered with its product's discovered

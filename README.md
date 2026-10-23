@@ -4,7 +4,7 @@ A mod for **Alchemy Factory** that shows cauldron recipes in the game. It adds a
 
 Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.3 or newer (0.1.x).
 
-Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
+Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.3, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
 
 ## Install
 

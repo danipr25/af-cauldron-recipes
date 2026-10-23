@@ -61,7 +61,7 @@ local function fixture()
       return 1000
     end,
   })
-  return { disk = disk, ops = ops, logs = logs, store = s, json = json }
+  return { disk = disk, ops = ops, logs = logs, store = s, json = json, files = files }
 end
 
 local function sample()
@@ -122,12 +122,34 @@ return {
 
     testAVersion1RecordLoadsAndIsSavedAsTheCurrentVersion = function()
       local f = fixture()
-      f.disk[FILE] = f.json.encode({ version = 1, world = "W 1", discovered = {} })
+      local old = { mode = "advanced", inputs = { "Gentian", "GentianNectar" }, product = "Clay", seen = "load" }
+      f.disk[FILE] = f.json.encode({ version = 1, world = "W 1", discovered = { old } })
       local rec, status = f.store:load("W_1", "W 1")
       lu.assertEquals(status, "loaded")
       lu.assertNil(rec.readOnly)
       lu.assertTrue(f.store:save("W_1", rec))
-      lu.assertEquals(f.json.decode(f.disk[FILE]).version, record.VERSION)
+      local written = f.json.decode(f.disk[FILE])
+      lu.assertEquals(written.version, record.VERSION)
+      lu.assertEquals(written.discovered, { old })
+    end,
+
+    testASaveThatFailsAtTheLastStepIsPendingAndOneBeforeItIsNot = function()
+      local f = fixture()
+      local real = f.files.rename
+      f.files.rename = function()
+        return nil, "locked"
+      end
+      local saved, stage = f.store:save("W_1", sample())
+      lu.assertFalse(saved)
+      lu.assertEquals(stage, "pending")
+      lu.assertNotNil(f.disk[FILE .. ".tmp"]) -- the finished copy is what the next load uses
+      f.files.rename = real
+      f.files.write = function()
+        return nil, "disk full"
+      end
+      local savedAgain, stageAgain = f.store:save("W_1", sample())
+      lu.assertFalse(savedAgain)
+      lu.assertNil(stageAgain)
     end,
 
     testARecordFromANewerModIsNeverWritten = function()

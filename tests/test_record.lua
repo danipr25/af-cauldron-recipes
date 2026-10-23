@@ -212,6 +212,18 @@ return {
       lu.assertEquals(#rec.favorites, 0)
     end,
 
+    testPuttingAFavoriteBackKeepsItsPosition = function()
+      local rec = new()
+      rec:toggleFavorite("advanced", { "A", "B" }, "P")
+      rec:toggleFavorite("advanced", { "C", "D" }, "P")
+      rec:toggleFavorite("advanced", { "E", "F" }, "P")
+      local now, position = rec:toggleFavorite("advanced", { "C", "D" }, "P")
+      lu.assertEquals({ now, position }, { false, 2 })
+      rec:addFavorite("advanced", { "C", "D" }, "P", position)
+      lu.assertEquals(rec.favorites[2].inputs, { "C", "D" })
+      lu.assertEquals(#rec.favorites, 3)
+    end,
+
     testAFavoriteIsShownOnlyWhereItsRecipeWouldBe = function()
       local rec = new()
       rec:addDiscovered("advanced", { "Gentian", "GentianNectar" }, "Clay", "filter")
