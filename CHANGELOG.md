@@ -2,7 +2,7 @@
 
 All notable changes to Cauldron Recipes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). While the version is 0.x, a minor version may change how the mod behaves and says how here.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-23
 
 First public release.
 
