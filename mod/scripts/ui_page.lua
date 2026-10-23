@@ -1,9 +1,9 @@
 -- The Recipes tab (in the V menu, the item catalog), in two columns: on the left a mode button, a search box and a
 -- grid of products; on the right the recipes of the product the player clicked, in pages, a few recipes to a list row
 -- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact). A click
--- on the right only rebuilds the right pane, so the product grid keeps its scroll. Game-facing through the AF Mod
--- Loader API's page widgets (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is
--- verified in game): this look has not run in game with this mod yet.
+-- on the right only rebuilds the right pane, so the product grid keeps its scroll; switching the mode rebuilds both
+-- panes in place. Game-facing through the AF Mod Loader API's page widgets (page:columns, pane:clear, dividers; see its
+-- docs/api.md and docs/widgets.md for what is verified in game): this look has not run in game with this mod yet.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
@@ -72,7 +72,8 @@ function ui.new(deps)
   self.building = false
   self.generation = nil
   self.model = nil
-  -- The right pane of the page built last, so a click there can rebuild just that pane.
+  -- The panes of the page built last, so a click can rebuild just them.
+  self.left = nil
   self.right = nil
   -- What each pane built last lets progress touch: { left = function(percent), right = function(percent) }, each set
   -- by the view that needs it.
@@ -96,6 +97,7 @@ function Ui:install()
       self.building = false
       if not ok then
         self.current = {}
+        self.left = nil
         self.right = nil
         error(problem, 0)
       end
@@ -130,6 +132,7 @@ end
 -- A world was entered: nothing from the page of the previous world is touched any more.
 function Ui:reset()
   self.current = {}
+  self.left = nil
   self.right = nil
   self.model = nil
   self.generation = nil
@@ -157,6 +160,7 @@ end
 function Ui:build(page)
   local session = self.deps.session
   self.current = {}
+  self.left = nil
   self.right = nil
   local world, rec = session:current()
   if not world or not rec then
@@ -178,6 +182,7 @@ function Ui:build(page)
     sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
   end
   local left, right = table.unpack(page:columns({ 1, 2 }, { divider = true }))
+  self.left = left
   self.right = right
   self.current.left = self:buildLeft(left, rec, catalog, index)
   self.current.right = self:buildRight(right, rec, catalog, index)
@@ -205,6 +210,39 @@ function Ui:rebuildRight()
   end
 end
 
+-- Rebuilds both panes in place (the mode changed), without building the whole page again (that flickers). Same
+-- fallback as rebuildRight.
+function Ui:rebuildPanes()
+  self.current.left = nil
+  self.current.right = nil
+  local session = self.deps.session
+  local world, rec = session:current()
+  local catalog, index = session.catalog, session.index
+  local left, right = self.left, self.right
+  if
+    not (left and right and world and rec and catalog and index and self.model and world.generation == self.generation)
+  then
+    self:refresh()
+    return
+  end
+  left:clear()
+  right:clear()
+  local ok, result = xpcall(self.buildLeft, debug.traceback, self, left, rec, catalog, index)
+  if ok then
+    self.current.left = result
+  else
+    self.deps.log("could not build the left side of the Recipes page: " .. tostring(result))
+    sentence(left, "This part of the page could not be shown. See UE4SS.log.")
+  end
+  ok, result = xpcall(self.buildRight, debug.traceback, self, right, rec, catalog, index)
+  if ok then
+    self.current.right = result
+  else
+    self.deps.log("could not build the right side of the Recipes page: " .. tostring(result))
+    sentence(right, "This part of the page could not be shown. See UE4SS.log.")
+  end
+end
+
 -- Is there a recipe of this product to show in this mode?
 local function productVisible(rec, index, mode, product)
   if rec:hasDiscovered(mode, product) and rec:discoveredVisible(product) then
@@ -219,8 +257,9 @@ function Ui:buildLeft(pane, rec, catalog, index)
   dark(pane:text(MODE_LABEL[model.mode]))
   local top = pane:row()
   top:button(SWITCH_LABEL[model.mode], function()
-    -- The visible products change, so the page is built again. What is shown on the right starts over. `rec` and
-    -- `index` are the ones of this build: safe, because the index changing ends in a full refresh.
+    -- The visible products change, so both panes are built again (not the page: that flickers). What is shown on the
+    -- right starts over. `rec` and `index` are the ones of this build: safe, because the index changing ends in a
+    -- full refresh.
     model.mode = OTHER_MODE[model.mode]
     model.filter = {}
     model.pageIndex = 1
@@ -228,7 +267,7 @@ function Ui:buildLeft(pane, rec, catalog, index)
     if model.selected and not productVisible(rec, index, model.mode, model.selected) then
       model.selected = nil
     end
-    self:refresh()
+    self:rebuildPanes()
   end, { small = true })
   pane:divider()
 

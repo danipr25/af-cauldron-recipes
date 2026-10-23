@@ -9,6 +9,7 @@ All notable changes to Cauldron Recipes. The format follows [Keep a Changelog](h
 - The status line under the product's name no longer repeats the cauldron mode (the left side shows it): for example "3 of 25158 recipes, 0 discovered".
 - The Cauldron section on item sheets has the game's divider with the heading "Cauldron", and its text is dark.
 - Needs AF Mod Loader API 0.1.2 or later (dividers, column divider, game scrollbar and search box, page padding).
+- Switching between Normal and Advanced no longer flickers the menu: only the two columns are rebuilt, not the whole page.
 
 ## [0.1.1] - 2026-10-23
 

@@ -155,7 +155,7 @@ With API 0.1.1 and the two-column layout (branch `feature/recipes-layout`), test
 
 ## Not verified yet
 
-- The Recipes tab look of mod 0.1.2 (API 0.1.2), none of it has run in game yet: the dark text color on every text (the color itself was read from the game's item sheet texts, 2026-10-23, game 1.1.5024), the column divider, the horizontal dividers in the left and right panes, `row:divider()` between recipes, Advanced recipes three to a row with 42 per page (Normal two to a row, 40), the status line without the mode, and `section:divider("Cauldron")` on the item sheet. The API calls themselves were verified in game in the API's test (see its docs), not through this mod.
+- The Recipes tab look of mod 0.1.2 (API 0.1.2), none of it has run in game yet: the dark text color on every text (the color itself was read from the game's item sheet texts, 2026-10-23, game 1.1.5024), the column divider, the horizontal dividers in the left and right panes, `row:divider()` between recipes, Advanced recipes three to a row with 42 per page (Normal two to a row, 40), the status line without the mode, and `section:divider("Cauldron")` on the item sheet. Also not verified: the Show advanced / Show normal button rebuilding both columns in place (`pane:clear()` on the left pane from its own button, no flicker), and the mode and progress status lines staying right after it. The API calls themselves were verified in game in the API's test (see its docs), not through this mod.
 
 Each of these ships disabled or marked as unverified until it is checked in game.
 
