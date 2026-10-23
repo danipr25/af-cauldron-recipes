@@ -3,9 +3,9 @@
 -- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact), each
 -- followed by a star that marks it as a favorite. A Favorites button in the left pane swaps the right pane for all the
 -- favorites of the mode, grouped by product. A click on the right only rebuilds the right pane, so the product grid
--- keeps its scroll; switching the mode rebuilds both panes in place. Game-facing through the AF Mod Loader API's page widgets
--- (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is verified in game): this look
--- has not run in game with this mod yet.
+-- keeps its scroll; switching the mode rebuilds both panes in place. Game-facing through the AF Mod Loader API's page
+-- widgets (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is verified in game):
+-- this look has not run in game with this mod yet.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
