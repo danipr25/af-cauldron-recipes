@@ -26,14 +26,14 @@ gh attestation verify <file> --repo danipr25/af-cauldron-recipes --signer-workfl
 
 **Recipes tab** (V menu, after Ledger):
 
-- A grid of the products that have recipes you can see. Use the search box to find one, and the button at the top to switch between the Normal and Advanced cauldron.
-- Click a product to see its recipes, 20 per page. They are split into **Discovered** and **Other recipes**.
+- Two columns. On the left, a grid of the products that have recipes you can see. Use the search box to find one, and the button at the top to switch between the Normal and Advanced cauldron.
+- Click a product to see its recipes on the right, 40 per page, two to a row. They are split into **Discovered** and **Other recipes**. The arrows under the product's name change the page.
 - **Filter:** **+ Add** picks an ingredient, and only the recipes that use it stay. You can pick as many ingredients as the cauldron has slots. Click an ingredient in the filter to remove it, or **Clear** to remove them all.
 
 **Item sheet** (V menu, Materials and Goods):
 
-- A product shows one row per cauldron, for example **Cauldron Recipes** "12 recipes (3 discovered)". Its button opens the Recipes tab on that product in that cauldron.
-- An ingredient shows "Used in N cauldron recipes".
+- Under a **Cauldron** heading, a product shows one row per cauldron, for example **Normal** "12 recipes, 3 discovered". Its button opens the Recipes tab on that product in that cauldron.
+- An ingredient shows "Ingredient in N cauldron recipes".
 - The counts include only what the tab would show you, so nothing locked is given away.
 
 The first world you load after starting the game indexes every recipe in the background, which takes about a minute. Until it finishes, counts say "so far".

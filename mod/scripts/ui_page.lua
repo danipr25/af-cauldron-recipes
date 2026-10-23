@@ -1,6 +1,9 @@
--- The Recipes tab (in the V menu, the item catalog): a mode button, a search box, a grid of products, and the
--- recipes of the product the player clicks, in pages (small buttons, arrows and status lines keep it compact).
--- Game-facing through the AF Mod Loader API's page widgets: checked in game in the TAB menu, not yet in the V menu.
+-- The Recipes tab (in the V menu, the item catalog), in two columns: on the left a mode button, a search box and a
+-- grid of products; on the right the recipes of the product the player clicked, in pages, two recipes to a list row
+-- (small buttons, arrows and status lines keep it compact). A click on the right only rebuilds the right pane, so the
+-- product grid keeps its scroll. Game-facing through the AF Mod Loader API's page widgets (page:columns, pane:clear,
+-- space; see its docs/api.md and docs/widgets.md for what is verified in game): not yet checked with this mod in the
+-- V menu.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
@@ -12,7 +15,12 @@ local ui = {}
 local Ui = {}
 Ui.__index = Ui
 
-local PAGE_SIZE = 20
+local PAGE_SIZE = 40 -- recipes per page: two to a list row
+local PER_ROW = 2
+-- The gap between the two recipes of a row. The API's docs measured that a gap of 32 does not separate groups of tiles
+-- and that a row of three groups overflows the pane: tune this after looking at it in game.
+local RECIPE_GAP = 64
+local SECTION_GAP = 8
 local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
 local OTHER_MODE = { normal = "advanced", advanced = "normal" }
 local SWITCH_LABEL = { normal = "Show advanced", advanced = "Show normal" }
@@ -26,9 +34,10 @@ local function plural(count, word)
   return string.format("%d %s%s", count, word, count == 1 and "" or "s")
 end
 
--- Every sentence on the page wraps at the panel's edge. Returns the text handle.
-local function sentence(page, text, color)
-  local handle = page:text(text, { wrap = true })
+-- Every sentence wraps at the edge of its pane (or the panel's). `target` is the page or a pane. Returns the text
+-- handle.
+local function sentence(target, text, color)
+  local handle = target:text(text, { wrap = true })
   if color then
     handle:color(color[1], color[2], color[3])
   end
@@ -36,8 +45,8 @@ local function sentence(page, text, color)
 end
 
 -- A short muted status line in small text (a small text cannot wrap). Returns the text handle.
-local function smallLine(page, text)
-  local handle = page:text(text, { size = "small" })
+local function smallLine(target, text)
+  local handle = target:text(text, { size = "small" })
   handle:color(MUTED[1], MUTED[2], MUTED[3])
   return handle
 end
@@ -59,9 +68,9 @@ local function finding(index)
   return not index:isDone() and not index:isFailed()
 end
 
-local function failedLine(page, index)
+local function failedLine(target, index)
   if index:isFailed() then
-    sentence(page, "Not every recipe could be listed. See UE4SS.log.")
+    sentence(target, "Not every recipe could be listed. See UE4SS.log.")
   end
 end
 
@@ -77,13 +86,16 @@ function ui.new(deps)
   self.building = false
   self.generation = nil
   self.model = nil
-  -- What the page built last lets progress touch: { onProgress = function(percent) } (set by the view that needs it)
+  -- The right pane of the page built last, so a click there can rebuild just that pane.
+  self.right = nil
+  -- What each pane built last lets progress touch: { left = function(percent), right = function(percent) }, each set
+  -- by the view that needs it.
   self.current = {}
   return self
 end
 
 local function freshModel()
-  return { mode = "normal", view = "grid", search = "", selected = nil, pageIndex = 1, filter = {}, pickSearch = "" }
+  return { mode = "normal", view = "recipes", search = "", selected = nil, pageIndex = 1, filter = {}, pickSearch = "" }
 end
 
 -- Adds the tab to the V menu. Call it while the mod's entrypoint runs.
@@ -98,6 +110,7 @@ function Ui:install()
       self.building = false
       if not ok then
         self.current = {}
+        self.right = nil
         error(problem, 0)
       end
     end,
@@ -119,6 +132,7 @@ function Ui:showProduct(product, mode)
   model.mode = mode
   model.selected = product
   model.view = "recipes"
+  model.search = "" -- the product must be in the grid on the left
   model.pageIndex = 1
   model.filter = {} -- a filter belongs to one product in one mode
   self:refresh()
@@ -130,6 +144,7 @@ end
 -- A world was entered: nothing from the page of the previous world is touched any more.
 function Ui:reset()
   self.current = {}
+  self.right = nil
   self.model = nil
   self.generation = nil
 end
@@ -141,18 +156,22 @@ function Ui:refresh()
   end
 end
 
--- The index advanced. Only the status line of the page built last is touched, and only while it is on the page.
+-- The index advanced. Only the status lines of the page built last are touched, and only while they are on the page.
 -- The page is not built again for it: only when the index is done (session onDone).
 function Ui:onProgress(percent)
-  local onProgress = self.current.onProgress
-  if onProgress then
-    onProgress(percent)
+  local left, right = self.current.left, self.current.right
+  if left then
+    left(percent)
+  end
+  if right then
+    right(percent)
   end
 end
 
 function Ui:build(page)
   local session = self.deps.session
   self.current = {}
+  self.right = nil
   local world, rec = session:current()
   if not world or not rec then
     self.model = nil
@@ -172,13 +191,31 @@ function Ui:build(page)
   if rec.readOnly then
     sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
   end
-  if self.model.view == "pick" and self.model.selected then
-    self:buildPick(page, rec, catalog, index)
-  elseif self.model.view == "recipes" and self.model.selected then
-    self:buildRecipes(page, rec, catalog, index)
+  local left, right = table.unpack(page:columns({ 1, 2 }))
+  self.right = right
+  self.current.left = self:buildLeft(left, rec, catalog, index)
+  self.current.right = self:buildRight(right, rec, catalog, index)
+end
+
+-- Rebuilds only the right pane (the left one keeps its scroll). If the page cannot be trusted any more (no world, a
+-- new world, nothing built), the whole page is built again instead.
+function Ui:rebuildRight()
+  self.current.right = nil
+  local session = self.deps.session
+  local world, rec = session:current()
+  local catalog, index = session.catalog, session.index
+  local pane = self.right
+  if not (pane and world and rec and catalog and index and self.model and world.generation == self.generation) then
+    self:refresh()
+    return
+  end
+  pane:clear()
+  local ok, result = xpcall(self.buildRight, debug.traceback, self, pane, rec, catalog, index)
+  if ok then
+    self.current.right = result -- only a pane that was built can be updated
   else
-    self.model.view = "grid"
-    self:buildGrid(page, rec, catalog, index)
+    self.deps.log("could not build the right side of the Recipes page: " .. tostring(result))
+    sentence(pane, "This part of the page could not be shown. See UE4SS.log.")
   end
 end
 
@@ -190,12 +227,20 @@ local function productVisible(rec, index, mode, product)
   return rec:otherVisible(product) and index:recipes(mode, product) ~= nil
 end
 
-function Ui:buildGrid(page, rec, catalog, index)
+-- The left pane: the mode, the search and the grid of products. Returns the progress callback, or nil.
+function Ui:buildLeft(pane, rec, catalog, index)
   local model = self.model
-  page:text(MODE_LABEL[model.mode]):color(GOLD[1], GOLD[2], GOLD[3])
-  local top = page:row()
+  pane:text(MODE_LABEL[model.mode]):color(GOLD[1], GOLD[2], GOLD[3])
+  local top = pane:row()
   top:button(SWITCH_LABEL[model.mode], function()
+    -- The visible products change, so the page is built again. What is shown on the right starts over.
     model.mode = OTHER_MODE[model.mode]
+    model.filter = {}
+    model.pageIndex = 1
+    model.view = "recipes"
+    if model.selected and not productVisible(rec, index, model.mode, model.selected) then
+      model.selected = nil
+    end
     self:refresh()
   end, { small = true })
 
@@ -230,7 +275,7 @@ function Ui:buildGrid(page, rec, catalog, index)
             model.view = "recipes"
             model.pageIndex = 1
             model.filter = {} -- a filter belongs to one product in one mode
-            self:refresh()
+            self:rebuildRight()
           end,
         })
       end
@@ -240,7 +285,7 @@ function Ui:buildGrid(page, rec, catalog, index)
     end
   end
 
-  local input = page:input({
+  local input = pane:input({
     hint = "Search",
     onChange = function(text)
       model.search = text
@@ -249,26 +294,28 @@ function Ui:buildGrid(page, rec, catalog, index)
   })
   input:set(model.search)
   -- The line exists only when it has something to say: an empty one would leave a gap above the grid.
+  local onProgress = nil
   if #visible > 0 or waiting then
-    status = smallLine(page, "")
+    status = smallLine(pane, "")
     if waiting then
-      self.current.onProgress = function(percent)
+      onProgress = function(percent)
         status:set(statusLine(percent))
       end
     end
   end
   if #visible == 0 and not waiting then
     sentence(
-      page,
+      pane,
       string.format("No recipes discovered yet for the %s. ", MODE_LABEL[model.mode]:lower())
         .. "Set the filters of a cauldron, or use recipes.unlock <item> in the console."
     )
   end
   if rec:anyUnlocked() then
-    failedLine(page, index)
+    failedLine(pane, index)
   end
-  grid = page:grid()
+  grid = pane:grid()
   fill()
+  return onProgress
 end
 
 -- Enables or disables a button. A failure is logged and the button stays as it is.
@@ -300,9 +347,9 @@ function Ui:candidates(rec, catalog, index)
 end
 
 -- One row: "Filter:", the chosen ingredients, + Add (while there is a slot left and something to add) and Clear.
-function Ui:buildFilterRow(page, rec, catalog, index)
+function Ui:buildFilterRow(pane, rec, catalog, index)
   local model = self.model
-  local row = page:row()
+  local row = pane:row()
   row:text("Filter:", { size = "small" })
   for i, position in ipairs(model.filter) do
     -- A click removes this one entry (the same ingredient twice loses one), then the list starts at page 1.
@@ -313,7 +360,7 @@ function Ui:buildFilterRow(page, rec, catalog, index)
         end
         table.remove(model.filter, i)
         model.pageIndex = 1
-        self:refresh()
+        self:rebuildRight()
       end,
     })
   end
@@ -321,25 +368,40 @@ function Ui:buildFilterRow(page, rec, catalog, index)
     row:button("+ Add", function()
       model.view = "pick"
       model.pickSearch = ""
-      self:refresh()
+      self:rebuildRight()
     end, { small = true })
   end
   if #model.filter > 0 then
     row:button("Clear", function()
       model.filter = {}
       model.pageIndex = 1
-      self:refresh()
+      self:rebuildRight()
     end, { small = true })
   end
 end
 
--- The view for choosing an ingredient to add to the filter.
-function Ui:buildPick(page, rec, catalog, index)
+-- The right pane: what to do first, the recipes of the selected product, or the choice of an ingredient to add to
+-- the filter. Returns the progress callback, or nil.
+function Ui:buildRight(pane, rec, catalog, index)
   local model = self.model
-  page:text("Add an ingredient"):color(GOLD[1], GOLD[2], GOLD[3])
-  page:row():button("Back", function()
+  if not model.selected then
+    pane:text("Pick a product on the left"):color(GOLD[1], GOLD[2], GOLD[3])
+    sentence(pane, "Its recipes show here.")
+    return nil
+  end
+  if model.view == "pick" then
+    return self:buildPick(pane, rec, catalog, index)
+  end
+  return self:buildRecipes(pane, rec, catalog, index)
+end
+
+-- The view for choosing an ingredient to add to the filter.
+function Ui:buildPick(pane, rec, catalog, index)
+  local model = self.model
+  pane:text("Add an ingredient"):color(GOLD[1], GOLD[2], GOLD[3])
+  pane:row():button("Back", function()
     model.view = "recipes"
-    self:refresh()
+    self:rebuildRight()
   end, { small = true })
   local candidates = self:candidates(rec, catalog, index)
   local grid
@@ -353,13 +415,13 @@ function Ui:buildPick(page, rec, catalog, index)
             model.filter[#model.filter + 1] = catalog.ingredientIndex[clicked]
             model.pageIndex = 1
             model.view = "recipes"
-            self:refresh()
+            self:rebuildRight()
           end,
         })
       end
     end
   end
-  local input = page:input({
+  local input = pane:input({
     hint = "Search",
     onChange = function(text)
       model.pickSearch = text
@@ -368,17 +430,18 @@ function Ui:buildPick(page, rec, catalog, index)
   })
   input:set(model.pickSearch)
   if rec:otherVisible(model.selected) and finding(index) then
-    smallLine(page, "Ingredients in the recipes found so far")
+    smallLine(pane, "Ingredients in the recipes found so far")
   end
   if next(candidates) == nil then
-    sentence(page, "No ingredient to add.")
+    sentence(pane, "No ingredient to add.")
   end
-  grid = page:grid()
+  grid = pane:grid()
   fill()
+  return nil
 end
 
--- The recipes of the selected product, one page.
-function Ui:buildRecipes(page, rec, catalog, index)
+-- The recipes of the selected product, one page. Returns the progress callback, or nil.
+function Ui:buildRecipes(pane, rec, catalog, index)
   local model = self.model
   local product, mode = model.selected, model.mode
 
@@ -389,16 +452,29 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local counts = listing.counts(discovered, indexed)
   local waiting = rec:otherVisible(product) and finding(index)
 
-  -- One compact row: Back, the page arrows and "page / pages".
-  local nav = page:row()
-  nav:button("Back", function()
-    model.view = "grid"
-    self:refresh()
-  end, { small = true })
+  local head = pane:row()
+  head:item(product, 1)
+  head:text(catalog.display(product)):color(GOLD[1], GOLD[2], GOLD[3])
+
+  local function statusLine(total, all, percent)
+    local count = plural(all or total, "recipe")
+    if all then
+      count = string.format("%d of %s", total, count)
+    end
+    local base = MODE_LABEL[mode] .. ", " .. count
+    if counts.discovered > 0 then
+      base = base .. string.format(", %d discovered", counts.discovered)
+    end
+    return statusText(base, waiting and percent or nil)
+  end
+  local status = smallLine(pane, statusLine(result.total, unfiltered, index:progress()))
+
+  -- One compact row: the page arrows and "page / pages".
+  local nav = pane:row()
   local previous = nav:arrow("previous", function()
     if model.pageIndex > 1 then
       model.pageIndex = model.pageIndex - 1
-      self:refresh()
+      self:rebuildRight()
     end
   end)
   local function pageLabel(pages)
@@ -407,23 +483,13 @@ function Ui:buildRecipes(page, rec, catalog, index)
   local pageText = nav:text(pageLabel(result.pages), { size = "small" })
   local following = nav:arrow("next", function()
     model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
-    self:refresh()
+    self:rebuildRight()
   end)
   self:setEnabled(previous, result.page > 1)
   -- While recipes are still being found, a page that does not exist yet is not offered.
   self:setEnabled(following, result.page < result.pages)
 
-  page:row():item(product, 1)
-  sentence(page, catalog.display(product), GOLD)
-
-  local function statusLine(total, all, percent)
-    local count = plural(all or total, "recipe")
-    if all then
-      count = string.format("%d of %s", total, count)
-    end
-    return statusText(MODE_LABEL[mode] .. ", " .. count, waiting and percent or nil)
-  end
-  local status = smallLine(page, statusLine(result.total, unfiltered, index:progress()))
+  local onProgress = nil
   if waiting then
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
@@ -432,7 +498,7 @@ function Ui:buildRecipes(page, rec, catalog, index)
       return current.pages, current.total, all
     end
     local shownPages = result.pages
-    self.current.onProgress = function(percent)
+    onProgress = function(percent)
       local pages, total, all = live()
       status:set(statusLine(total, all, percent))
       if pages > shownPages then
@@ -443,39 +509,40 @@ function Ui:buildRecipes(page, rec, catalog, index)
     end
   end
   if rec:otherVisible(product) then
-    failedLine(page, index)
+    failedLine(pane, index)
   end
-  self:buildFilterRow(page, rec, catalog, index)
+  pane:space(SECTION_GAP)
+  self:buildFilterRow(pane, rec, catalog, index)
   if result.total == 0 then
     local text = #wanted > 0 and "No recipes with these ingredients" or "No recipes to show for this item"
-    sentence(page, text .. (waiting and " yet." or "."))
+    sentence(pane, text .. (waiting and " yet." or "."))
   end
 
-  local list = page:list()
-  local heading = nil -- "Discovered" or "Other recipes": the heading last written (headings are not recipes)
-  for _, item in ipairs(result.items) do
-    local kind = item.discovered and "Discovered" or "Other recipes"
-    if kind ~= heading then
-      heading = kind
-      if item.discovered then
-        local text = list:row():text(string.format("Discovered (%d)", counts.discovered))
-        text:color(GOLD[1], GOLD[2], GOLD[3])
-      else
-        local suffix = waiting and " so far" or ""
-        local text = list:row():text(string.format("Other recipes (%d%s)", counts.other, suffix))
-        text:color(MUTED[1], MUTED[2], MUTED[3])
-      end
-    end
+  pane:space(SECTION_GAP)
+  local list = pane:list()
+  for _, entry in ipairs(listing.rows(result.items, PER_ROW)) do
     local row = list:row()
-    local first, second, third = indexModule.unpack(item.packed)
-    local positions = { first, second, third }
-    for place, position in ipairs(positions) do
-      if place > 1 then
-        row:text(" + ")
+    if entry.heading and entry.discovered then
+      row:text(string.format("Discovered (%d)", counts.discovered)):color(GOLD[1], GOLD[2], GOLD[3])
+    elseif entry.heading then
+      local suffix = waiting and " so far" or ""
+      row:text(string.format("Other recipes (%d%s)", counts.other, suffix)):color(MUTED[1], MUTED[2], MUTED[3])
+    else
+      for number, packed in ipairs(entry.recipes) do
+        if number > 1 then
+          row:space(RECIPE_GAP)
+        end
+        local first, second, third = indexModule.unpack(packed)
+        for place, position in ipairs({ first, second, third }) do
+          if place > 1 then
+            row:text(" + ")
+          end
+          row:item(catalog.ingredients[position], 1)
+        end
       end
-      row:item(catalog.ingredients[position], 1)
     end
   end
+  return onProgress
 end
 
 return ui
