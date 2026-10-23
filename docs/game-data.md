@@ -137,10 +137,21 @@ Game 1.1.5023, UE4SS 1181, a throwaway Lua mod with a save loaded.
 With API 0.1.5 then 0.1.6. Development builds before the first public release were numbered 0.1.1 to 0.1.7 (0.1.0 is the first public release), so these numbers name those builds.
 
 - Ingredient rules: no liquid, drink or hidden item in Other recipes or in the + Add grid (counts in the section above).
+- The next four lines describe the single-page layout before the two-column change:
 - Ingredient filter of the recipes page: the Filter row (small text, clickable ingredient tiles, small + Add and Clear) fits; the + Add grid of ingredients with search works, with icons and clicks; adding an ingredient narrows the list, the status reads "F of N" and the page goes to 1; the same ingredient twice works; Clear works; + Add hides when the slots are full; Back keeps the filter; another product starts without a filter.
 - Clicking an ingredient in the filter row removes just that one; a right click removes it too; a double click does not remove two.
 - Compact layout of round 3: the Back button, the arrows and the P / M row, the tile, the gold name, the small cream status and the centered "+" look right.
 - Page rebuilds on page steps and filter changes were not noticeable.
+
+## Verified in game 1.1.5024 (2026-10-23)
+
+With API 0.1.1 and the two-column layout (branch `feature/recipes-layout`), tested by the user:
+
+- Recipes tab: two columns; a click on a product fills the right pane without flicker and the left grid keeps its scroll; two recipes per list row fit and are separated by `row:space(64)`.
+- `pane:clear()` from clicks inside the right pane works: the page arrows, the + Add button (the pick view opens in the right pane), a pick tile, removing a filter chip, Clear and Back each rebuild the right pane correctly.
+- Show advanced and Show normal reset the filter; the search box on the left filters the grid.
+- Item sheet: the "Cauldron" heading with a gap above it, and the Normal and Advanced buttons open the Recipes tab on that product and mode. Items without recipes show no section.
+- UE4SS.log had no warnings from the UI (no "could not", "failed" or "after its page was rebuilt" lines from either mod).
 
 ## Not verified yet
 
@@ -153,4 +164,5 @@ Each of these ships disabled or marked as unverified until it is checked in game
 - A gold `Discovered (n)` heading on a list row (color on list texts), a disabled Next arrow turning on when the page count grows while recipes are found, `enable(true)` on the Next arrow from a progress callback, "page / pages" next to the arrows updating as pages appear, and the small muted status line (mode, recipes, percent) updating in place.
 - The list, page count and status line following the filter while recipes are still being found (not reported in the in-game check).
 - The Recipes tab in the V menu (`menu = "catalog"`): that it shows with its padding, works as it did in the TAB menu, and that the highlighted tab is right after opening the menu on Goods, Stats or Ledger. Its first appearance after loading a save (the V menu hooks are registered lazily).
-- The Cauldron section on the item sheet (`api.catalog.section`, `sheet.lua`): the product rows (one per mode with visible recipes: a small "Cauldron Recipes" or "Advanced Cauldron Recipes" button and "N recipes (D discovered)" for that mode, "so far" while the index runs), the buttons (set the product and their own mode, view recipes, page 1, no filter, rebuild the page and `tab:select()`), the ingredient line ("Used in N cauldron recipes"), and nothing for other items, on the Materials and Goods sheets. The counts come from the recipe index (counted per ingredient while it runs, `index.lua` `usedIn`) and the record's visibility, so a save with nothing unlocked shows only discovered recipes. Clearing and rebuilding the section on every item is unverified in the API.
+- The Cauldron section on the item sheet (`sheet.lua`), what the 2026-10-23 test did not cover: the ingredient line ("Ingredient in N cauldron recipes"), "so far" while the index runs, and the counts themselves (recipe index and record visibility). Clearing and rebuilding the section on every item is unverified in the API.
+- The two-column Recipes tab (`ui_page.lua`), what the 2026-10-23 test did not cover: wrapped text in panes, the progress line ("finding recipes N%") updating on a fresh world, and the Cauldron section's Normal and Advanced buttons being the same size (the user's visual check was only that they looked fine).

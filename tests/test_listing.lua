@@ -25,6 +25,37 @@ return {
     end,
   },
 
+  TestListingRows = {
+    testRecipesGoTwoToARowUnderTheirHeadingAndKindsNeverMix = function()
+      local function item(packed, discovered)
+        return { packed = packed, discovered = discovered }
+      end
+      local rows = listing.rows({
+        item(1, true),
+        item(2, true),
+        item(3, true),
+        item(4, false),
+        item(5, false),
+        item(6, false),
+        item(7, false),
+        item(8, false),
+      }, 2)
+      lu.assertEquals(rows, {
+        { heading = true, discovered = true },
+        { recipes = { 1, 2 }, discovered = true },
+        { recipes = { 3 }, discovered = true },
+        { heading = true, discovered = false },
+        { recipes = { 4, 5 }, discovered = false },
+        { recipes = { 6, 7 }, discovered = false },
+        { recipes = { 8 }, discovered = false },
+      })
+    end,
+
+    testAPageWithoutRecipesHasNoRows = function()
+      lu.assertEquals(listing.rows({}, 2), {})
+    end,
+  },
+
   TestListing = {
     testDiscoveredFirstThenTheIndexWithoutRepeats = function()
       local page = listing.page({ 30, 10 }, { 10, 20, 30, 40 }, 1, 20)

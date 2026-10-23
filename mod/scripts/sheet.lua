@@ -1,7 +1,7 @@
 -- The Cauldron section of the V menu's item sheet (api.catalog.section): for a cauldron product, how many recipes
 -- there are in each cauldron mode (and how many the player discovered), one row per mode with a button that opens the
--- Recipes tab on that product in that mode;
--- for a cauldron ingredient, how many recipes use it. Items that are neither show nothing.
+-- Recipes tab on that product in that mode; for a cauldron ingredient, how many recipes use it. Items that are
+-- neither show nothing.
 -- The counts are pure functions of the record, the catalog and the index (sheet.productSummary, sheet.usedIn); the
 -- section itself is game-facing through the AF Mod Loader API. Not verified in game yet.
 local listing = require("listing")
@@ -12,7 +12,8 @@ local Sheet = {}
 Sheet.__index = Sheet
 
 local MODES = { "normal", "advanced" }
-local MODE_BUTTON = { normal = "Cauldron Recipes", advanced = "Advanced Cauldron Recipes" }
+local MODE_BUTTON = { normal = "Normal", advanced = "Advanced" }
+local SECTION_GAP = 16
 local GOLD = { 1.0, 0.75, 0.2 }
 local MUTED = { 0.88, 0.82, 0.70 }
 
@@ -90,32 +91,43 @@ function Sheet:build(section, item)
   if not (world and rec and catalog and index) then
     return
   end
+  -- Work out what there is to say first: the heading and its gap come only when something follows.
+  local modes = {}
+  local soFarProduct = ""
   if catalog.productSet[item] then
     local summary = sheet.productSummary(rec, catalog, index, item)
-    local soFar = rec:otherVisible(item) and finding(index) and " so far" or ""
+    soFarProduct = rec:otherVisible(item) and finding(index) and " so far" or ""
     for _, mode in ipairs(MODES) do
-      local counts = summary[mode]
-      if counts.total > 0 then -- a mode without a visible recipe has no row
-        local row = section:row()
-        row:button(MODE_BUTTON[mode], function()
-          self.deps.ui:showProduct(item, mode)
-        end, { small = true })
-        local text = row:text(
-          string.format("%s%s (%d discovered)", plural(counts.total, "recipe"), soFar, counts.discovered),
-          { size = "small" }
-        )
-        text:color(GOLD[1], GOLD[2], GOLD[3])
+      if summary[mode].total > 0 then -- a mode without a visible recipe has no row
+        modes[#modes + 1] = { mode = mode, counts = summary[mode] }
       end
     end
   end
+  local usedIn = 0
   if catalog.ingredientIndex[item] ~= nil then
-    local count = sheet.usedIn(rec, catalog, index, item)
-    if count > 0 then
-      local soFar = rec:anyUnlocked() and finding(index) and " so far" or ""
-      local text =
-        section:text(string.format("Used in %s%s", plural(count, "cauldron recipe"), soFar), { size = "small" })
-      text:color(MUTED[1], MUTED[2], MUTED[3])
-    end
+    usedIn = sheet.usedIn(rec, catalog, index, item)
+  end
+  if #modes == 0 and usedIn == 0 then
+    return
+  end
+
+  section:space(SECTION_GAP)
+  section:text("Cauldron")
+  for _, entry in ipairs(modes) do
+    local row = section:row()
+    row:button(MODE_BUTTON[entry.mode], function()
+      self.deps.ui:showProduct(item, entry.mode)
+    end, { small = true })
+    row:text(plural(entry.counts.total, "recipe") .. soFarProduct, { size = "small" }):color(GOLD[1], GOLD[2], GOLD[3])
+    row
+      :text(string.format(", %d discovered", entry.counts.discovered), { size = "small" })
+      :color(MUTED[1], MUTED[2], MUTED[3])
+  end
+  if usedIn > 0 then
+    local soFar = rec:anyUnlocked() and finding(index) and " so far" or ""
+    section
+      :text(string.format("Ingredient in %s%s", plural(usedIn, "cauldron recipe"), soFar), { size = "small" })
+      :color(MUTED[1], MUTED[2], MUTED[3])
   end
 end
 
