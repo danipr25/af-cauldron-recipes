@@ -2,15 +2,25 @@
 
 A mod for **Alchemy Factory** that shows cauldron recipes in the game. It adds a **Recipes** tab to the V menu (the item catalog) and a Cauldron section to each item's sheet. It shows the recipes you have discovered and, if you unlock them, all the others. Recipes come from the game itself, not from a list in the mod.
 
-Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.7 or newer (0.1.x).
+Requires [AF Mod Loader](https://github.com/danipr25/af-modloader) and [AF Mod Loader API](https://github.com/danipr25/af-modloader-api) 0.1.0 or newer (0.1.x).
 
-Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024.
+Unofficial fan project. Alchemy Factory belongs to its developers. Status: version 0.1.0, tested on game 1.1.5024. See the [changelog](CHANGELOG.md).
 
 ## Install
 
 1. Install AF Mod Loader and AF Mod Loader API.
 2. Close the game.
-3. Copy the `mod` folder to `<game>\mods` and rename the copy to `af-cauldron-recipes`.
+3. Download `af-cauldron-recipes-<version>.zip` from [Releases](https://github.com/danipr25/af-cauldron-recipes/releases).
+4. Extract it into `<game>\mods`, so you get `<game>\mods\af-cauldron-recipes\mod.json`.
+
+To update, delete the old `<game>\mods\af-cauldron-recipes` folder first, then extract the new zip. Your discovered recipes are kept in `<game>\mods\.data` and stay.
+
+Every release lists the SHA-256 of its files in `SHA256SUMS.txt`, and GitHub Actions builds the files and attests them. To check a download, run `Get-FileHash -Algorithm SHA256 <file>` and compare, or use the [GitHub CLI](https://cli.github.com/):
+
+```
+gh attestation verify <file> --repo danipr25/af-cauldron-recipes --signer-workflow danipr25/af-cauldron-recipes/.github/workflows/release.yml
+```
+
 
 ## Use
 
@@ -59,6 +69,16 @@ Needs Lua 5.4, StyLua 2.5.2 and Luacheck 1.2.0 on the PATH (how to install them 
 The game folder defaults to the Steam one. Pass another as the first argument or set `AF_GAME_DIR`.
 
 How the mod reads the game's data, and what is not verified in game yet: [docs/game-data.md](docs/game-data.md).
+
+### Releasing
+
+Work reaches `development` by pull request, and CI (the `check` job, the same as `lua scripts/check.lua`) must pass. Only the owner publishes, and only from GitHub Actions: nothing is built or uploaded from a personal machine.
+
+1. On `development`, set the new version (`mod/mod.json` and `VERSION` in `mod/scripts/main.lua`, which must match) and write its section in [CHANGELOG.md](CHANGELOG.md).
+2. Open a pull request from `development` into `main` and merge it. `main` accepts nothing else.
+3. Tag the merge commit `vX.Y.Z` (the version) on `main` and push the tag. The [release workflow](.github/workflows/release.yml) checks that the commit is on `main` and that the tag matches the code, runs the checks, builds the zip, attests it and publishes a GitHub release with the CHANGELOG section as notes. Versions before 1.0 are marked as pre-releases.
+
+To rehearse, run the Release workflow by hand from `main` ("Run workflow"): it does everything except the attestation and the release, and keeps the files and notes as a workflow artifact.
 
 ## License
 
