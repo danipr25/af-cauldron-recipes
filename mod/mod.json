@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "af-cauldron-recipes",
+  "version": "0.1.0",
+  "name": "Cauldron Recipes",
+  "description": "Adds a Recipes tab to the V menu (item catalog): search, Normal and Advanced modes, and the recipes you have discovered. Item sheets show how many cauldron recipes make or use an item.",
+  "authors": ["af-modloader contributors"],
+  "license": "MIT",
+  "entrypoint": "scripts/main.lua",
+  "depends": { "af-modloader": ">=0.1.0 <0.2.0", "af-modloader-api": ">=0.1.7 <0.2.0" }
+}
