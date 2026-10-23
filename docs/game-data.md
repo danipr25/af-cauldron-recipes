@@ -144,7 +144,7 @@ With API 0.1.5 then 0.1.6.
 
 ## Not verified yet
 
-Each of these ships disabled or marked, as AGENTS.md section 6 asks.
+Each of these ships disabled or marked as unverified until it is checked in game.
 
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.

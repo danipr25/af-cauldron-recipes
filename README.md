@@ -57,7 +57,7 @@ If the file of a world comes from a newer version of the mod, or from another wo
 
 ## Development
 
-See `AGENTS.md`. `lua scripts/check.lua` runs formatting, lint and the tests. `lua scripts/dev-install.lua` copies `mod\` into a game that has AF Mod Loader and its API installed (a developer tool, not part of the mod).
+Needs Lua 5.4, StyLua and Luacheck. `lua scripts/check.lua` runs formatting, lint and the tests. `lua scripts/dev-install.lua` copies `mod\` into a game that has AF Mod Loader and its API installed (a developer tool, not part of the mod).
 
 ## License
 
