@@ -139,10 +139,16 @@ end
 function Tab:uiFor(state, entry)
   return {
     confirm = function(items)
+      if state ~= self.state then
+        return
+      end
       state.pending = { items = items, entry = entry }
       self:refresh()
     end,
     message = function(text)
+      if state ~= self.state then
+        return
+      end
       state.message = text
       self:refresh()
     end,
@@ -158,17 +164,24 @@ function Tab:buildConfirm(page, info, mode, catalog)
     page,
     string.format(
       "%s to your inventory. What does not fit drops on the ground.",
-      pending.items == 1 and "1 item goes back" or pending.items .. " items go back"
+      pending.items == 1 and "1 item in this cauldron may go back"
+        or pending.items .. " items in this cauldron may go back"
     )
   )
   sentence(page, "Set " .. catalog.display(entry.product) .. " on this cauldron?")
   local row = page:row()
   row:button("Apply", function()
+    if state ~= self.state then
+      return
+    end
     state.pending = nil
     self.deps.applier:confirm(info, mode, entry, self:uiFor(state, entry), pending.items)
   end, { small = true })
   row:space(ROW_GAP)
   row:button("Cancel", function()
+    if state ~= self.state then
+      return
+    end
     state.pending = nil
     self:refresh()
   end, { small = true })

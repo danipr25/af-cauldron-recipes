@@ -30,8 +30,10 @@ end
 -- input is used once). The others change: first the ones that have a filter are cleared, then every one is set, so
 -- only the last call can complete the recipe and the game never sees a half-changed one as a recipe.
 -- Returns { ok = false, reason = "slots" } when the slot count is not the recipe's size, { ok = true, same = true }
--- when nothing needs to change, or { ok = true, clear = { slot, ... }, set = { { slot, name }, ... }, items = n } with
--- slots counted from 0 (as the game's call takes them) and `items` the number of items held by the changing slots.
+-- when nothing needs to change, or
+-- { ok = true, clear = { slot, ... }, set = { { slot, name }, ... }, items = n, held = m } with
+-- slots counted from 0 (as the game's call takes them), `items` the number of items in the changing slots and `held`
+-- the number in all slots (what the player is told, because what happens to a kept slot's items is not verified).
 function apply.plan(slots, inputs)
   if #slots ~= #inputs then
     return { ok = false, reason = "slots" }
@@ -58,7 +60,10 @@ function apply.plan(slots, inputs)
       missing[#missing + 1] = name
     end
   end
-  local plan = { ok = true, clear = {}, set = {}, items = 0 }
+  local plan = { ok = true, clear = {}, set = {}, items = 0, held = 0 }
+  for _, slot in ipairs(slots) do
+    plan.held = plan.held + slot.items
+  end
   for place, number in ipairs(changing) do
     if slots[number].filter then
       plan.clear[#plan.clear + 1] = number - 1
@@ -82,18 +87,36 @@ function apply.new(deps)
   return setmetatable({ deps = deps }, Applier)
 end
 
+-- Runs `fn` deferred, unless work for this panel open (`info`) is already waiting or running: a burst of clicks
+-- applies once. A new open has a new `info`.
+function Applier:queue(info, fn)
+  if self.busy == info then
+    return
+  end
+  self.busy = info
+  self.deps.api.defer(function()
+    local ok, problem = pcall(fn)
+    if self.busy == info then
+      self.busy = nil
+    end
+    if not ok then
+      error(problem, 0)
+    end
+  end)
+end
+
 -- The player clicked Use on `entry` ({ product, inputs }). `info` is the panel's info (API panels.tab); `ui` has
 -- confirm(items) (ask the player; call Applier:confirm if they agree) and message(text) (tell the player).
 -- Nothing touches the game inside the click: the work is deferred and starts by checking the panel is still open.
 function Applier:request(info, mode, entry, ui)
-  self.deps.api.defer(function()
+  self:queue(info, function()
     self:run(info, mode, entry, ui, nil)
   end)
 end
 
--- The player agreed to send `items` items back to the inventory.
+-- The player agreed, knowing the cauldron holds `items` items.
 function Applier:confirm(info, mode, entry, ui, items)
-  self.deps.api.defer(function()
+  self:queue(info, function()
     self:run(info, mode, entry, ui, items)
   end)
 end
@@ -103,7 +126,7 @@ function Applier:fail(ui, why, detail)
   ui.message("The recipe could not be set. " .. why)
 end
 
--- `confirmed` is the number of items the player agreed to send back, or nil when they were not asked yet.
+-- `confirmed` is the number of items in the cauldron the player was told about, or nil when they were not asked yet.
 function Applier:run(info, mode, entry, ui, confirmed)
   if not info.isCurrent() then
     return
@@ -130,8 +153,8 @@ function Applier:run(info, mode, entry, ui, confirmed)
     ui.message("That recipe is already set on this cauldron.")
     return
   end
-  if plan.items > 0 and plan.items ~= confirmed then
-    ui.confirm(plan.items)
+  if plan.held > 0 and plan.held ~= confirmed then
+    ui.confirm(plan.held)
     return
   end
   local calls = {}
@@ -155,7 +178,7 @@ function Applier:run(info, mode, entry, ui, confirmed)
       "set the recipe %s on a %s cauldron by the player's click (%s)",
       joined(entry.inputs),
       mode,
-      plan.items > 0 and (plan.items .. " items went back to the inventory") or "it held no items"
+      plan.held > 0 and (plan.held .. " items were in the cauldron") or "it held no items"
     )
   )
   info.showGame()

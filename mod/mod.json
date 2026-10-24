@@ -3,7 +3,7 @@
   "id": "af-cauldron-recipes",
   "version": "0.1.4",
   "name": "Cauldron Recipes",
-  "description": "Adds a Recipes tab to the V menu (item catalog): search, Normal and Advanced modes, and the recipes you have discovered. Item sheets show how many cauldron recipes make or use an item.",
+  "description": "Adds a Recipes tab to the V menu (item catalog): search, Normal and Advanced modes, and the recipes you have discovered. The cauldron panel gets a Recipes tab that sets a favorite recipe on click. Item sheets show how many cauldron recipes make or use an item.",
   "authors": ["af-modloader contributors"],
   "license": "MIT",
   "entrypoint": "scripts/main.lua",

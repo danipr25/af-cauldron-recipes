@@ -102,6 +102,7 @@ return {
       lu.assertEquals(plan.clear, { 0, 1 })
       lu.assertEquals(plan.set, { { 0, "Charcoal" }, { 1, "Sand" } })
       lu.assertEquals(plan.items, 5)
+      lu.assertEquals(plan.held, 7) -- the player is told about every slot
     end,
     testOrderDoesNotMatter = function()
       lu.assertTrue(apply.plan({ slot("Sand"), slot("Clay"), slot("Wood") }, { "Wood", "Sand", "Clay" }).same)
@@ -159,6 +160,23 @@ return {
       lu.assertEquals(run.asked, { 45, 46 })
       lu.assertEquals(component.calls, {})
       run.applier:confirm(run.info, "normal", COKE, run.ui, 46)
+      run.flush()
+      lu.assertEquals(#component.calls, 4)
+      lu.assertEquals(run.shown.count, 1)
+    end,
+    testKeptSlotItemsCountInTheQuestion = function()
+      local component = fakeComponent({ slot("Wood"), slot("Limestone"), slot("Flax", 9) })
+      local run = setup(component)
+      run.applier:request(run.info, "normal", COKE, run.ui)
+      run.flush()
+      lu.assertEquals(run.asked, { 9 })
+      lu.assertEquals(component.calls, {})
+    end,
+    testABurstOfClicksAppliesOnce = function()
+      local component = fakeComponent({ slot("Wood"), slot("Limestone"), slot("Flax") })
+      local run = setup(component)
+      run.applier:request(run.info, "normal", COKE, run.ui)
+      run.applier:request(run.info, "normal", COKE, run.ui)
       run.flush()
       lu.assertEquals(#component.calls, 4)
       lu.assertEquals(run.shown.count, 1)
