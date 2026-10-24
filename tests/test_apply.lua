@@ -1,5 +1,5 @@
 -- Contract of applying a recipe to a cauldron: which slots keep their filter, which are cleared and set (and in what
--- order), the confirmation when items would go back, and that the panel is checked before anything is touched.
+-- order), that the panel is checked before anything is touched.
 local lu = require("luaunit")
 local apply = require("apply")
 
@@ -39,7 +39,7 @@ end
 -- Everything an applier needs, with `defer` queueing the work in `queue` (run it with flush) and a panel that stays
 -- open unless `open.value` is set to false.
 local function setup(component)
-  local queue, shown, logged, said, asked = {}, { count = 0 }, {}, {}, {}
+  local queue, shown, logged, said = {}, { count = 0 }, {}, {}
   local open = { value = true }
   local info = {
     component = component,
@@ -67,9 +67,6 @@ local function setup(component)
     end,
   })
   local ui = {
-    confirm = function(items)
-      asked[#asked + 1] = items
-    end,
     message = function(text)
       said[#said + 1] = text
     end,
@@ -88,7 +85,6 @@ local function setup(component)
     shown = shown,
     logged = logged,
     said = said,
-    asked = asked,
   }
 end
 
@@ -102,7 +98,7 @@ return {
       lu.assertEquals(plan.clear, { 0, 1 })
       lu.assertEquals(plan.set, { { 0, "Charcoal" }, { 1, "Sand" } })
       lu.assertEquals(plan.items, 5)
-      lu.assertEquals(plan.held, 7) -- the player is told about every slot
+      lu.assertEquals(plan.held, 7) -- every slot, for the log
     end,
     testOrderDoesNotMatter = function()
       lu.assertTrue(apply.plan({ slot("Sand"), slot("Clay"), slot("Wood") }, { "Wood", "Sand", "Clay" }).same)
@@ -140,37 +136,18 @@ return {
       -- Flax stays. The two changing slots are cleared, then set: only the last call completes a recipe.
       lu.assertEquals(component.calls, { { 0, "None" }, { 1, "None" }, { 0, "Charcoal" }, { 1, "Sand" } })
       lu.assertEquals(completed, { 4 })
-      lu.assertEquals(run.asked, {})
       lu.assertEquals(run.said, {})
       lu.assertEquals(run.shown.count, 1)
       lu.assertEquals(#run.logged, 1)
     end,
-    testItemsAskFirstAndAChangedCountAsksAgain = function()
-      local component = fakeComponent({ slot("Wood", 30), slot("Limestone", 15), slot("Flax") })
+    testItemsAreNotAskedAboutAndAreLogged = function()
+      local component = fakeComponent({ slot("Wood", 30), slot("Limestone", 15), slot("Flax", 9) })
       local run = setup(component)
       run.applier:request(run.info, "normal", COKE, run.ui)
-      run.flush()
-      lu.assertEquals(run.asked, { 45 })
-      lu.assertEquals(component.calls, {})
-      lu.assertEquals(run.shown.count, 0)
-      -- The player agrees, but the items changed in between: ask again instead of acting.
-      component.FacilityContainer.Slots[1].ItemStack = 31
-      run.applier:confirm(run.info, "normal", COKE, run.ui, 45)
-      run.flush()
-      lu.assertEquals(run.asked, { 45, 46 })
-      lu.assertEquals(component.calls, {})
-      run.applier:confirm(run.info, "normal", COKE, run.ui, 46)
       run.flush()
       lu.assertEquals(#component.calls, 4)
       lu.assertEquals(run.shown.count, 1)
-    end,
-    testKeptSlotItemsCountInTheQuestion = function()
-      local component = fakeComponent({ slot("Wood"), slot("Limestone"), slot("Flax", 9) })
-      local run = setup(component)
-      run.applier:request(run.info, "normal", COKE, run.ui)
-      run.flush()
-      lu.assertEquals(run.asked, { 9 })
-      lu.assertEquals(component.calls, {})
+      lu.assertStrContains(run.logged[1], "54 items were in the cauldron")
     end,
     testABurstOfClicksAppliesOnce = function()
       local component = fakeComponent({ slot("Wood"), slot("Limestone"), slot("Flax") })
@@ -188,7 +165,7 @@ return {
       run.open.value = false -- closed before the deferred work runs
       run.flush()
       lu.assertEquals(component.calls, {})
-      lu.assertEquals({ run.said, run.asked, run.logged }, { {}, {}, {} })
+      lu.assertEquals({ run.said, run.logged }, { {}, {} })
       lu.assertEquals(run.shown.count, 0)
     end,
     testSameRecipeAndWrongSlotCountAreSaidPlainly = function()
@@ -204,7 +181,7 @@ return {
       wrong.flush()
       lu.assertEquals(advanced.calls, {})
       lu.assertStrContains(wrong.said[1], "2 slots")
-      lu.assertStrContains(wrong.said[1], "needs 3")
+      lu.assertStrContains(wrong.said[1], "not 3")
     end,
     testAFailingCallIsReportedAndStops = function()
       local component = fakeComponent({ slot("Wood"), slot("Limestone"), slot("Flax") })
@@ -215,7 +192,7 @@ return {
       run.applier:request(run.info, "normal", COKE, run.ui)
       run.flush()
       lu.assertEquals(#run.said, 1)
-      lu.assertStrContains(run.said[1], "partly changed")
+      lu.assertStrContains(run.said[1], "partly set")
       lu.assertEquals(run.shown.count, 0)
     end,
   },

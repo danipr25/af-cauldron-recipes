@@ -106,55 +106,42 @@ function Applier:queue(info, fn)
 end
 
 -- The player clicked Use on `entry` ({ product, inputs }). `info` is the panel's info (API panels.tab); `ui` has
--- confirm(items) (ask the player; call Applier:confirm if they agree) and message(text) (tell the player).
+-- message(text) (tell the player).
 -- Nothing touches the game inside the click: the work is deferred and starts by checking the panel is still open.
 function Applier:request(info, mode, entry, ui)
   self:queue(info, function()
-    self:run(info, mode, entry, ui, nil)
+    self:run(info, mode, entry, ui)
   end)
 end
 
--- The player agreed, knowing the cauldron holds `items` items.
-function Applier:confirm(info, mode, entry, ui, items)
-  self:queue(info, function()
-    self:run(info, mode, entry, ui, items)
-  end)
-end
-
-function Applier:fail(ui, why, detail)
+function Applier:fail(ui, why, detail, shown)
   self.deps.log("could not set the recipe on the cauldron: " .. why .. (detail and (" (" .. detail .. ")") or ""))
-  ui.message("The recipe could not be set. " .. why)
+  ui.message(shown or "The recipe could not be set. See UE4SS.log.")
 end
 
--- `confirmed` is the number of items in the cauldron the player was told about, or nil when they were not asked yet.
-function Applier:run(info, mode, entry, ui, confirmed)
+function Applier:run(info, mode, entry, ui)
   if not info.isCurrent() then
     return
   end
   local deps = self.deps
   local component = info.component
   if component == nil then
-    return self:fail(ui, "The cauldron could not be read.")
+    return self:fail(ui, "the cauldron could not be read")
   end
-  -- Read again now: the slots may have changed since the page was built or the player was asked.
+  -- Read now: the slots may have changed since the page was built.
   local read, slots = pcall(apply.readSlots, component, deps.text)
   if not read then
-    return self:fail(ui, "The cauldron could not be read.", tostring(slots))
+    return self:fail(ui, "the cauldron could not be read", tostring(slots))
   end
   local plan = apply.plan(slots, entry.inputs)
   if not plan.ok then
-    local message =
-      string.format("This cauldron has %d slots, but the recipe needs %d. Nothing was changed.", #slots, #entry.inputs)
+    local message = string.format("This cauldron has %d slots, not %d. Nothing was changed.", #slots, #entry.inputs)
     deps.log("did not set the recipe: " .. message)
     ui.message(message)
     return
   end
   if plan.same then
     ui.message("That recipe is already set on this cauldron.")
-    return
-  end
-  if plan.held > 0 and plan.held ~= confirmed then
-    ui.confirm(plan.held)
     return
   end
   local calls = {}
@@ -169,7 +156,12 @@ function Applier:run(info, mode, entry, ui, confirmed)
       component:NetCommandSetFilterName(call[1], deps.fname(call[2]))
     end)
     if not ok then
-      self:fail(ui, "The cauldron may be partly changed: check its filters.", tostring(problem))
+      self:fail(
+        ui,
+        "the cauldron may be partly changed, check its filters",
+        tostring(problem),
+        "Cauldron may be partly set. Check it."
+      )
       return
     end
   end

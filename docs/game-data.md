@@ -183,7 +183,7 @@ Each of these ships disabled or marked as unverified until it is checked in game
 
 - A kept slot (its filter already matches) that holds items: whether it keeps them when the other slots change.
 - Brewing progress of a cauldron when its recipe changes.
-- The Recipes side tab of the cauldron panel as built by this mod (0.1.4): the list, the search, the Use mark, the confirmation and the Advanced cauldron. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
+- The Recipes side tab of the cauldron panel as built by this mod (0.1.4): the list, the search, the Use mark, the progress line while the index is built and the Advanced cauldron. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.

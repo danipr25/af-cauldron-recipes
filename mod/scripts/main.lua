@@ -46,7 +46,7 @@ local files = {
 
 local recordStore = store.new({ dir = AF.dataDir, files = files, json = AF.json, log = AF.log })
 
-local ui, discoverer
+local ui, discoverer, panelTab
 local current = session.new({
   api = api,
   log = AF.log,
@@ -60,6 +60,7 @@ local current = session.new({
   end,
   onProgress = function(percent)
     ui:onProgress(percent)
+    panelTab:onProgress(percent)
   end,
 })
 discoverer = discover.new({
@@ -77,14 +78,13 @@ discoverer = discover.new({
 ui = uiPage.new({ api = api, log = AF.log, session = current, discover = discoverer })
 
 ui:install()
-cauldronTab
-  .new({
-    api = api,
-    log = AF.log,
-    session = current,
-    applier = apply.new({ api = api, log = AF.log, text = catalog.text, fname = FName }),
-  })
-  :install()
+panelTab = cauldronTab.new({
+  api = api,
+  log = AF.log,
+  session = current,
+  applier = apply.new({ api = api, log = AF.log, text = catalog.text, fname = FName }),
+})
+panelTab:install()
 sheet.new({ api = api, log = AF.log, session = current, ui = ui }):install()
 commands.install({
   api = api,

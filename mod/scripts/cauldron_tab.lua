@@ -1,7 +1,7 @@
--- The Recipes side tab of the cauldron panel (api.panels.tab): a search box, a "Show discovered" button and the
--- recipes for this cauldron's mode, each with a Use mark that sets the recipe on the cauldron (apply.lua). Favorites
--- show by default, the discovered recipes too with the toggle. Game-facing through the API's page widgets: not
--- verified in game with this mod yet.
+-- The Recipes side tab of the cauldron panel (api.panels.tab): a search box and the recipes for this cauldron's mode,
+-- like the V menu's Recipes tab (favorites, discovered, then every other recipe), each with a Use mark that sets the
+-- recipe on the cauldron (apply.lua). Game-facing through the API's page widgets: not verified in game with this mod
+-- yet. Lines are short because wrapped text did not wrap in this panel.
 local recipeList = require("recipe_list")
 local style = require("style")
 
@@ -12,16 +12,9 @@ Tab.__index = Tab
 
 local dark = style.dark
 local TILE_SCALE, INPUT_SCALE = 0.8, 0.6
-local ROW_GAP = 8
-
-local MODE_NAME = { normal = "Normal", advanced = "Advanced" }
 
 local function sentence(target, text)
   return dark(target:text(text, { wrap = true }))
-end
-
-local function plural(count, word)
-  return string.format("%d %s%s", count, word, count == 1 and "" or "s")
 end
 
 -- deps:
@@ -45,7 +38,7 @@ function Tab:install()
   })
 end
 
--- Builds the page again after a click that changed what it says (the search text and the toggle are kept).
+-- Builds the page again after a click that changed what it says (the search text is kept).
 function Tab:refresh()
   self.refreshing = true
   local ok, problem = pcall(self.tab.refresh, self.tab)
@@ -55,37 +48,42 @@ function Tab:refresh()
   end
 end
 
--- The line under the toggle: the count, or why the list is empty.
-local function noteText(result, mode, showDiscovered)
-  if result.base == 0 then
-    if showDiscovered then
-      return string.format("No favorite or discovered recipes for the %s cauldron yet.", MODE_NAME[mode]:lower())
-    end
-    return string.format(
-      "No favorite recipes for the %s cauldron. Star recipes in the Recipes tab of the V menu, "
-        .. "or turn on Show discovered.",
-      MODE_NAME[mode]:lower()
-    )
+-- The recipe index line: how far it is, or that it is incomplete. Nil when there is nothing to say.
+local function indexLine(index, percent)
+  if not index then
+    return "Finding recipes"
   end
-  if result.total == 0 then
-    return "Nothing matches the search."
+  if index:isFailed() then
+    return "Some recipes are missing. See UE4SS.log."
   end
-  if result.total > #result.rows then
-    return string.format("Showing the first %d of %d recipes. Search to narrow the list.", #result.rows, result.total)
+  if not index:isDone() then
+    return string.format("Finding recipes %d%%", percent or index:progress())
   end
-  return plural(result.total, "recipe")
+  return nil
+end
+
+-- The line above the list.
+local function noteText(result, search)
+  if #result.rows == 0 then
+    return search ~= "" and "Nothing matches the search." or "No recipes to show yet."
+  end
+  if result.more then
+    return string.format("Showing the first %d. Search to narrow.", #result.rows)
+  end
+  return #result.rows == 1 and "1 recipe" or #result.rows .. " recipes"
 end
 
 function Tab:build(page, info)
   if not self.refreshing then
-    self.state = { search = "", showDiscovered = false }
+    self.state = { search = "" }
   end
   local state = self.state
   local session = self.deps.session
   local world, rec = session:current()
   local catalog = session.catalog
   if not world or not rec or not catalog then
-    sentence(page, "The game's items are still being read. Close the panel and open it again in a moment.")
+    sentence(page, "The game's items are still being read.")
+    sentence(page, "Close the panel and open it again.")
     return
   end
   local mode = info.kind
@@ -93,11 +91,6 @@ function Tab:build(page, info)
     sentence(page, state.message)
     state.message = nil
   end
-  if state.pending then
-    self:buildConfirm(page, info, mode, catalog)
-    return
-  end
-
   local input = page:input({
     hint = "Search",
     onChange = function(text)
@@ -106,20 +99,29 @@ function Tab:build(page, info)
     end,
   })
   input:set(state.search)
-  local row = page:row()
-  row:button(state.showDiscovered and "Hide discovered" or "Show discovered", function()
-    state.showDiscovered = not state.showDiscovered
-    self:refresh()
-  end, { small = true })
+  local index = session.index
+  local line = indexLine(index)
+  state.index = index
+  if line then
+    state.status = dark(page:text(line, { size = "small" }))
+  end
   state.note = sentence(page, " ")
   state.list = page:list()
   self:fill(state, rec, catalog, mode, info)
 end
 
--- Fills the list for the current search and toggle, and the line above it.
+-- The index advanced: only the status line of the page built last changes.
+function Tab:onProgress(percent)
+  local state = self.state
+  if state and state.status then
+    state.status:set(indexLine(state.index, percent) or "All recipes found.")
+  end
+end
+
+-- Fills the list for the current search, and the line above it.
 function Tab:fill(state, rec, catalog, mode, info)
-  local result = recipeList.build(rec, catalog, mode, state)
-  state.note:set(noteText(result, mode, state.showDiscovered))
+  local result = recipeList.build(rec, catalog, state.index, mode, state)
+  state.note:set(noteText(result, state.search))
   local list = state.list
   list:clear()
   for _, entry in ipairs(result.rows) do
@@ -130,21 +132,14 @@ function Tab:fill(state, rec, catalog, mode, info)
       row:item(name, 1, { scale = INPUT_SCALE })
     end
     dark(row:mark("Use", function()
-      self.deps.applier:request(info, mode, entry, self:uiFor(state, entry))
+      self.deps.applier:request(info, mode, entry, self:uiFor(state))
     end))
   end
 end
 
--- What the applier uses to talk to the player: it asks on the page, or says something there.
-function Tab:uiFor(state, entry)
+-- What the applier uses to talk to the player: it says something on the page.
+function Tab:uiFor(state)
   return {
-    confirm = function(items)
-      if state ~= self.state then
-        return
-      end
-      state.pending = { items = items, entry = entry }
-      self:refresh()
-    end,
     message = function(text)
       if state ~= self.state then
         return
@@ -153,38 +148,6 @@ function Tab:uiFor(state, entry)
       self:refresh()
     end,
   }
-end
-
--- The question shown instead of the list when the cauldron holds items.
-function Tab:buildConfirm(page, info, mode, catalog)
-  local state = self.state
-  local pending = state.pending
-  local entry = pending.entry
-  sentence(
-    page,
-    string.format(
-      "%s to your inventory. What does not fit drops on the ground.",
-      pending.items == 1 and "1 item in this cauldron may go back"
-        or pending.items .. " items in this cauldron may go back"
-    )
-  )
-  sentence(page, "Set " .. catalog.display(entry.product) .. " on this cauldron?")
-  local row = page:row()
-  row:button("Apply", function()
-    if state ~= self.state then
-      return
-    end
-    state.pending = nil
-    self.deps.applier:confirm(info, mode, entry, self:uiFor(state, entry), pending.items)
-  end, { small = true })
-  row:space(ROW_GAP)
-  row:button("Cancel", function()
-    if state ~= self.state then
-      return
-    end
-    state.pending = nil
-    self:refresh()
-  end, { small = true })
 end
 
 return cauldronTab
