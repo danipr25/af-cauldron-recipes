@@ -137,13 +137,43 @@ return {
       lu.assertEquals(back:discoveredFor("normal", "GoldDust5")[1].inputs, { "CopperCoin", "GoldCoin", "SilverCoin" })
     end,
 
+    testAVersion1FileLoadsWithoutFavoritesAndIgnoresAFavoritesField = function()
+      local data = {
+        version = 1,
+        world = "World_1",
+        discovered = { { mode = "advanced", inputs = { "A", "B" }, product = "C", seen = "load" } },
+        favorites = { { mode = "advanced", inputs = { "A", "B" }, product = "C" } },
+      }
+      local rec = assert(record.decode(data, "World_1"))
+      lu.assertEquals(#rec.discovered, 1)
+      lu.assertEquals(#rec.favorites, 0)
+      lu.assertEquals(rec:toTable().version, record.VERSION)
+    end,
+
+    testFavoritesRoundTripAndDuplicatesCollapse = function()
+      local rec = new()
+      rec:toggleFavorite("advanced", { "GentianNectar", "Gentian" }, "Clay")
+      rec:toggleFavorite("normal", { "SilverCoin", "GoldCoin", "CopperCoin" }, "GoldDust5")
+      local data = rec:toTable()
+      lu.assertEquals(data.favorites[1].inputs, { "Gentian", "GentianNectar" })
+      local back = assert(record.decode(data, "World_1"))
+      lu.assertEquals(back:toTable(), data)
+      -- The same recipe twice in the file (other order of inputs) is one favorite.
+      data.favorites[3] = { mode = "advanced", inputs = { "GentianNectar", "Gentian" }, product = "Clay" }
+      lu.assertEquals(#assert(record.decode(data, "World_1")).favorites, 2)
+    end,
+
     testUnusableDataIsRefused = function()
       local bad = {
         "text",
-        { version = 2, world = "W" },
+        { version = 3, world = "W" },
         { version = 1 },
         { version = 1, world = "W", discovered = { { mode = "normal", inputs = { "A", "B" }, product = "C" } } },
         { version = 1, world = "W", unlocked = { 5 } },
+        { version = 2, world = "W", favorites = "Clay" },
+        { version = 2, world = "W", favorites = { { mode = "advanced", inputs = { "A" }, product = "C" } } },
+        { version = 2, world = "W", favorites = { { mode = "advanced", inputs = { "A", 7 }, product = "C" } } },
+        { version = 2, world = "W", favorites = { { mode = "other", inputs = { "A", "B" }, product = "C" } } },
       }
       for index, data in ipairs(bad) do
         lu.assertNil(record.decode(data, "W"), "case " .. index)
@@ -167,6 +197,66 @@ return {
       lu.assertEquals(#rec.discovered, 2) -- still in the file
       lu.assertEquals(#rec:discoveredFor("advanced", "Coke"), 1)
       lu.assertEquals(#rec:toTable().discovered, 2)
+    end,
+  },
+
+  TestRecordFavorites = {
+    testToggleStarsAndUnstarsAndTheKeyIgnoresTheProduct = function()
+      local rec = new()
+      lu.assertFalse(rec:isFavorite("advanced", { "Gentian", "GentianNectar" }))
+      lu.assertTrue(rec:toggleFavorite("advanced", { "GentianNectar", "Gentian" }, "Clay"))
+      lu.assertTrue(rec:isFavorite("advanced", { "Gentian", "GentianNectar" }))
+      lu.assertFalse(rec:isFavorite("normal", { "Gentian", "GentianNectar", "Wood" }))
+      -- Another product name for the same ingredients is the same recipe: it unstars.
+      lu.assertFalse(rec:toggleFavorite("advanced", { "Gentian", "GentianNectar" }, "Coke"))
+      lu.assertEquals(#rec.favorites, 0)
+    end,
+
+    testPuttingAFavoriteBackKeepsItsPosition = function()
+      local rec = new()
+      rec:toggleFavorite("advanced", { "A", "B" }, "P")
+      rec:toggleFavorite("advanced", { "C", "D" }, "P")
+      rec:toggleFavorite("advanced", { "E", "F" }, "P")
+      local now, position = rec:toggleFavorite("advanced", { "C", "D" }, "P")
+      lu.assertEquals({ now, position }, { false, 2 })
+      rec:addFavorite("advanced", { "C", "D" }, "P", position)
+      lu.assertEquals(rec.favorites[2].inputs, { "C", "D" })
+      lu.assertEquals(#rec.favorites, 3)
+    end,
+
+    testAFavoriteIsShownOnlyWhereItsRecipeWouldBe = function()
+      local rec = new()
+      rec:addDiscovered("advanced", { "Gentian", "GentianNectar" }, "Clay", "filter")
+      rec:toggleFavorite("advanced", { "Gentian", "GentianNectar" }, "Clay") -- discovered
+      rec:toggleFavorite("advanced", { "Wood", "Coke" }, "Clay") -- not discovered
+      lu.assertEquals(#rec:favoritesFor("advanced", "Clay"), 1) -- the discovered one only
+      rec:unlock("Clay")
+      lu.assertEquals(#rec:favoritesFor("advanced", "Clay"), 2)
+      lu.assertEquals(#rec:favoritesFor("normal"), 0)
+      rec:lock("Clay") -- locked: hidden, not deleted
+      lu.assertEquals(#rec:favoritesFor("advanced"), 0)
+      lu.assertEquals(#rec.favorites, 2)
+      rec:unlock("Clay")
+      lu.assertEquals(#rec:favoritesFor("advanced"), 2)
+    end,
+
+    testRevalidateCountsAndRefreshesFavorites = function()
+      local rec = new()
+      rec:toggleFavorite("advanced", { "Gentian", "Gone" }, "Clay")
+      rec:toggleFavorite("advanced", { "Gentian", "GentianNectar" }, "Clay")
+      local known = { Gentian = true, GentianNectar = true }
+      local changed, unknown, unknownFavorites = rec:revalidate(function(name)
+        return known[name] == true
+      end, function(name)
+        return name == "Clay" or name == "Coke"
+      end, function()
+        return "Coke"
+      end)
+      lu.assertTrue(changed)
+      lu.assertEquals({ unknown, unknownFavorites }, { 0, 1 })
+      lu.assertEquals(#rec.favorites, 2) -- the unknown one stays in the file
+      lu.assertEquals(rec.favorites[2].product, "Coke")
+      lu.assertEquals(#rec:favoritesFor("advanced"), 0) -- neither is shown: the usable one is not visible here
     end,
   },
 }
