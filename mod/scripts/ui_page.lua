@@ -1,9 +1,11 @@
 -- The Recipes tab (in the V menu, the item catalog), in two columns: on the left a mode button, a search box and a
 -- grid of products; on the right the recipes of the product the player clicked, in pages, a few recipes to a list row
--- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact). A click
--- on the right only rebuilds the right pane, so the product grid keeps its scroll; switching the mode rebuilds both
--- panes in place. Game-facing through the AF Mod Loader API's page widgets (page:columns, pane:clear, dividers; see its
--- docs/api.md and docs/widgets.md for what is verified in game): this look has not run in game with this mod yet.
+-- (listing.PER_ROW: two in Normal, three in Advanced; small buttons, arrows and status lines keep it compact), each
+-- followed by a star that marks it as a favorite. A Favorites button in the left pane swaps the right pane for all the
+-- favorites of the mode, grouped by product. A click on the right only rebuilds the right pane, so the product grid
+-- keeps its scroll; switching the mode rebuilds both panes in place. Game-facing through the AF Mod Loader API's page
+-- widgets (page:columns, pane:clear, dividers; see its docs/api.md and docs/widgets.md for what is verified in game):
+-- this look has not run in game with this mod yet.
 local filterModule = require("filter")
 local indexModule = require("index")
 local listing = require("listing")
@@ -19,6 +21,9 @@ Ui.__index = Ui
 local MODE_LABEL = { normal = "Normal cauldron", advanced = "Advanced cauldron" }
 local OTHER_MODE = { normal = "advanced", advanced = "normal" }
 local SWITCH_LABEL = { normal = "Show advanced", advanced = "Show normal" }
+local FAVORITES_LABEL = "Favorites"
+local BACK_LABEL = "Back to recipes"
+local STAR_ON, STAR_OFF = "★", "☆"
 -- A small gap between a label and the buttons next to it in a row (they touched in game).
 local ROW_GAP = 8
 
@@ -77,6 +82,7 @@ function ui.new(deps)
   -- The panes of the page built last, so a click can rebuild just them.
   self.left = nil
   self.right = nil
+  self.favoritesButton = nil -- the left pane's Favorites button of the page built last (nil in a read-only world)
   -- What each pane built last lets progress touch: { left = function(percent), right = function(percent) }, each set
   -- by the view that needs it.
   self.current = {}
@@ -164,6 +170,7 @@ function Ui:build(page)
   self.current = {}
   self.left = nil
   self.right = nil
+  self.favoritesButton = nil
   local world, rec = session:current()
   if not world or not rec then
     self.model = nil
@@ -181,7 +188,11 @@ function Ui:build(page)
     return
   end
   if rec.readOnly then
-    sentence(page, "Recipes cannot be saved for this world. See UE4SS.log. Discovered recipes are not tracked.")
+    sentence(
+      page,
+      "Recipes cannot be saved for this world. See UE4SS.log. "
+        .. "Discovered recipes are not tracked and favorites are not available."
+    )
   end
   local left, right = table.unpack(page:columns({ 1, 2 }, { divider = true }))
   self.left = left
@@ -229,6 +240,7 @@ function Ui:rebuildPanes()
   end
   left:clear()
   right:clear()
+  self.favoritesButton = nil
   self.noProducts = nil -- set by buildLeft; must not keep the previous mode's value if it fails
   local ok, result = xpcall(self.buildLeft, debug.traceback, self, left, rec, catalog, index)
   if ok then
@@ -266,12 +278,25 @@ function Ui:buildLeft(pane, rec, catalog, index)
     model.mode = OTHER_MODE[model.mode]
     model.filter = {}
     model.pageIndex = 1
-    model.view = "recipes"
+    if model.view ~= "favorites" then
+      model.view = "recipes" -- the Favorites view stays, now for the other mode
+    end
     if model.selected and not productVisible(rec, index, model.mode, model.selected) then
       model.selected = nil
     end
     self:rebuildPanes()
   end, { small = true })
+  if not rec.readOnly then
+    top:space(ROW_GAP)
+    local button
+    button = top:button(model.view == "favorites" and BACK_LABEL or FAVORITES_LABEL, function()
+      model.view = model.view == "favorites" and "recipes" or "favorites"
+      model.pageIndex = 1
+      button:set(model.view == "favorites" and BACK_LABEL or FAVORITES_LABEL)
+      self:rebuildRight()
+    end, { small = true })
+    self.favoritesButton = button
+  end
   pane:divider()
 
   local visible = {}
@@ -306,6 +331,9 @@ function Ui:buildLeft(pane, rec, catalog, index)
             model.view = "recipes"
             model.pageIndex = 1
             model.filter = {} -- a filter belongs to one product in one mode
+            if self.favoritesButton then
+              self.favoritesButton:set(FAVORITES_LABEL)
+            end
             self:rebuildRight()
           end,
         })
@@ -359,22 +387,25 @@ end
 
 local recipeLists = listing.recipeLists
 
--- The lists as the page shows them: the filter applied to both. The third value is the number of recipes before the
--- filter, or nil when no ingredient is chosen.
+-- The lists as the page shows them: the filter applied to all three. The fourth value is the number of recipes before
+-- the filter, or nil when no ingredient is chosen.
 local function filteredLists(rec, catalog, index, mode, product, wanted)
-  local discovered, indexed = recipeLists(rec, catalog, index, mode, product)
+  local favorites, discovered, indexed = recipeLists(rec, catalog, index, mode, product)
   if #wanted == 0 then
-    return discovered, indexed, nil
+    return favorites, discovered, indexed, nil
   end
-  local counts = listing.counts(discovered, indexed)
-  return filterModule.apply(discovered, wanted), filterModule.apply(indexed, wanted), counts.discovered + counts.other
+  local counts = listing.counts(favorites, discovered, indexed)
+  return filterModule.apply(favorites, wanted),
+    filterModule.apply(discovered, wanted),
+    filterModule.apply(indexed, wanted),
+    counts.favorite + counts.discovered + counts.other
 end
 
 -- The ingredient positions that can still be added to the filter, as a set (see filter.ingredients).
 function Ui:candidates(rec, catalog, index)
   local model = self.model
-  local discovered, indexed = recipeLists(rec, catalog, index, model.mode, model.selected)
-  return filterModule.ingredients(model.filter, discovered, indexed)
+  local favorites, discovered, indexed = recipeLists(rec, catalog, index, model.mode, model.selected)
+  return filterModule.ingredients(model.filter, favorites, discovered, indexed)
 end
 
 -- One row: "Filter:", the chosen ingredients, + Add (while there is a slot left and something to add) and Clear.
@@ -416,6 +447,9 @@ end
 -- the filter. Returns the progress callback, or nil.
 function Ui:buildRight(pane, rec, catalog, index)
   local model = self.model
+  if model.view == "favorites" and not rec.readOnly then
+    return self:buildFavorites(pane, rec, catalog)
+  end
   if not model.selected then
     if self.noProducts then
       return nil
@@ -481,11 +515,11 @@ function Ui:buildRecipes(pane, rec, catalog, index)
   local product, mode = model.selected, model.mode
 
   local wanted = model.filter
-  local discovered, indexed, unfiltered = filteredLists(rec, catalog, index, mode, product, wanted)
+  local favorites, discovered, indexed, unfiltered = filteredLists(rec, catalog, index, mode, product, wanted)
   local pageSize = listing.PAGE_SIZE[mode]
-  local result = listing.page(discovered, indexed, model.pageIndex, pageSize)
+  local result = listing.page(favorites, discovered, indexed, model.pageIndex, pageSize)
   model.pageIndex = result.page
-  local counts = listing.counts(discovered, indexed)
+  local counts = listing.counts(favorites, discovered, indexed)
   local waiting = rec:otherVisible(product) and finding(index)
 
   local head = pane:row()
@@ -497,39 +531,19 @@ function Ui:buildRecipes(pane, rec, catalog, index)
     if all then
       count = string.format("%d of %s", total, count)
     end
-    local base = count .. string.format(", %d discovered", counts.discovered)
+    local base = count .. string.format(", %d discovered", counts.allDiscovered)
     return statusText(base, waiting and percent or nil)
   end
   local status = smallLine(pane, statusLine(result.total, unfiltered, index:progress()))
 
-  -- One compact row: the page arrows and "page / pages".
-  local nav = pane:row()
-  local previous = nav:arrow("previous", function()
-    if model.pageIndex > 1 then
-      model.pageIndex = model.pageIndex - 1
-      self:rebuildRight()
-    end
-  end)
-  local function pageLabel(pages)
-    return string.format("%d / %d", result.page, pages)
-  end
-  nav:space(ROW_GAP)
-  local pageText = dark(nav:text(pageLabel(result.pages), { size = "small" }))
-  nav:space(ROW_GAP)
-  local following = nav:arrow("next", function()
-    model.pageIndex = model.pageIndex + 1 -- listing.page keeps it in range
-    self:rebuildRight()
-  end)
-  self:setEnabled(previous, result.page > 1)
-  -- While recipes are still being found, a page that does not exist yet is not offered.
-  self:setEnabled(following, result.page < result.pages)
+  local pageText, following, pageLabel = self:buildNav(pane, result.page, result.pages)
 
   local onProgress = nil
   if waiting then
     -- The pages and the total as they are now (the index adds recipes while it runs).
     local function live()
-      local now, later, all = filteredLists(rec, catalog, index, mode, product, wanted)
-      local current = listing.page(now, later, 1, pageSize)
+      local starred, now, later, all = filteredLists(rec, catalog, index, mode, product, wanted)
+      local current = listing.page(starred, now, later, 1, pageSize)
       return current.pages, current.total, all
     end
     local shownPages = result.pages
@@ -556,28 +570,139 @@ function Ui:buildRecipes(pane, rec, catalog, index)
   pane:divider()
   local list = pane:list()
   for _, entry in ipairs(listing.rows(result.items, listing.PER_ROW[mode])) do
-    local row = list:row()
-    if entry.heading and entry.discovered then
-      dark(row:text(string.format("Discovered (%d)", counts.discovered)))
-    elseif entry.heading then
-      local suffix = waiting and " so far" or ""
-      dark(row:text(string.format("Other recipes (%d%s)", counts.other, suffix)))
-    else
-      for number, packed in ipairs(entry.recipes) do
-        if number > 1 then
-          row:divider()
-        end
-        local first, second, third = indexModule.unpack(packed)
-        for place, position in ipairs({ first, second, third }) do
-          if place > 1 then
-            dark(row:text(" + "))
-          end
-          row:item(catalog.ingredients[position], 1)
-        end
+    if entry.heading then
+      local row = list:row()
+      if entry.kind == "favorite" then
+        dark(row:text(string.format("Favorites (%d)", counts.favorite)))
+      elseif entry.kind == "discovered" then
+        dark(row:text(string.format("Discovered (%d)", counts.discovered)))
+      else
+        local suffix = waiting and " so far" or ""
+        dark(row:text(string.format("Other recipes (%d%s)", counts.other, suffix)))
       end
+    else
+      self:recipeRow(list, rec, catalog, mode, product, entry.recipes)
     end
   end
   return onProgress
+end
+
+-- The page arrows and "page / pages" in one compact row. Returns the page text, the next arrow and a function that
+-- makes the label for a page count (the index adds pages while it runs).
+function Ui:buildNav(pane, current, pages)
+  local model = self.model
+  local nav = pane:row()
+  local previous = nav:arrow("previous", function()
+    if model.pageIndex > 1 then
+      model.pageIndex = model.pageIndex - 1
+      self:rebuildRight()
+    end
+  end)
+  local function pageLabel(count)
+    return string.format("%d / %d", current, count)
+  end
+  nav:space(ROW_GAP)
+  local pageText = dark(nav:text(pageLabel(pages), { size = "small" }))
+  nav:space(ROW_GAP)
+  local following = nav:arrow("next", function()
+    model.pageIndex = model.pageIndex + 1 -- the listing keeps it in range
+    self:rebuildRight()
+  end)
+  self:setEnabled(previous, current > 1)
+  -- While recipes are still being found, a page that does not exist yet is not offered.
+  self:setEnabled(following, current < pages)
+  return pageText, following, pageLabel
+end
+
+-- One list row of recipes (`recipes` are packed), each followed by its star unless the record is read only.
+function Ui:recipeRow(list, rec, catalog, mode, product, recipes)
+  local row = list:row()
+  for number, packed in ipairs(recipes) do
+    if number > 1 then
+      row:divider()
+    end
+    local first, second, third = indexModule.unpack(packed)
+    local inputs = {}
+    for place, position in ipairs({ first, second, third }) do
+      if place > 1 then
+        dark(row:text(" + "))
+      end
+      inputs[place] = catalog.ingredients[position]
+      row:item(inputs[place], 1)
+    end
+    if not rec.readOnly then
+      local star
+      star = dark(row:mark(rec:isFavorite(mode, inputs) and STAR_ON or STAR_OFF, function()
+        self:toggleFavorite(star, mode, inputs, product)
+      end))
+    end
+  end
+end
+
+-- A click on a star: toggles the favorite in the record, saves, and changes the star in place (the pane is not
+-- rebuilt, so nothing jumps; the order follows on the next page, product, filter or mode change). If the record
+-- could not be saved at all the star goes back; if only the last step failed, the new state is kept (the finished
+-- copy is used at the next load) and the next save tries again.
+function Ui:toggleFavorite(star, mode, inputs, product)
+  local world, rec = self.deps.session:current()
+  if not world or not rec or rec.readOnly then
+    return
+  end
+  local was = rec:isFavorite(mode, inputs)
+  local now, position = rec:toggleFavorite(mode, inputs, product)
+  local saved, stage = self.deps.session:save()
+  if not saved and stage == "pending" then
+    self.deps.log("could not finish saving the favorite. The star stays and saving is retried at the next change")
+  elseif not saved then
+    if was then
+      rec:addFavorite(mode, inputs, product, position) -- back where it was
+    else
+      rec:toggleFavorite(mode, inputs, product)
+    end
+    star:set(was and STAR_ON or STAR_OFF)
+    self.deps.log("could not save the favorite, so the star was put back. See the lines above in UE4SS.log")
+    return
+  end
+  star:set(now and STAR_ON or STAR_OFF)
+end
+
+-- The Favorites view: the favorites of the current mode that are visible, grouped by product. Returns nil (no
+-- progress to show).
+function Ui:buildFavorites(pane, rec, catalog)
+  local model = self.model
+  local mode = model.mode
+  local groups = listing.favoriteGroups(rec, catalog, mode, catalog.display)
+  local result = listing.favoritePage(groups, model.pageIndex, listing.PAGE_SIZE[mode], listing.PER_ROW[mode])
+  model.pageIndex = result.page
+  dark(pane:text("Favorites"))
+  if result.total == 0 then
+    if #rec.favorites > 0 then
+      sentence(
+        pane,
+        string.format(
+          "No favorites to show for the %s. Favorites of hidden recipes come back when their recipes are shown again.",
+          MODE_LABEL[mode]:lower()
+        )
+      )
+    else
+      sentence(pane, "No favorites yet. Click the star next to a recipe to add it here.")
+    end
+    return nil
+  end
+  smallLine(pane, plural(result.total, "favorite recipe"))
+  self:buildNav(pane, result.page, result.pages)
+  pane:divider()
+  local list = pane:list()
+  for _, entry in ipairs(result.rows) do
+    if entry.title then
+      local row = list:row()
+      row:item(entry.title, 1)
+      dark(row:text(catalog.display(entry.title)))
+    else
+      self:recipeRow(list, rec, catalog, mode, entry.product, entry.recipes)
+    end
+  end
+  return nil
 end
 
 return ui

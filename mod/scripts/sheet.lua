@@ -34,8 +34,9 @@ end
 function sheet.productSummary(rec, catalog, index, product)
   local summary = {}
   for _, mode in ipairs(MODES) do
-    local seen, indexed = listing.recipeLists(rec, catalog, index, mode, product)
-    local counts = listing.counts(seen, indexed)
+    -- Favorites are recipes that are discovered or in the index already: they add nothing to these counts.
+    local _, seen, indexed = listing.recipeLists(rec, catalog, index, mode, product)
+    local counts = listing.counts({}, seen, indexed)
     summary[mode] = { total = counts.discovered + counts.other, discovered = counts.discovered }
   end
   return summary

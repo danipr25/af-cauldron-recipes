@@ -61,7 +61,7 @@ local function fixture()
       return 1000
     end,
   })
-  return { disk = disk, ops = ops, logs = logs, store = s, json = json }
+  return { disk = disk, ops = ops, logs = logs, store = s, json = json, files = files }
 end
 
 local function sample()
@@ -120,9 +120,41 @@ return {
       lu.assertStrContains(f.logs[1], "broken-1000")
     end,
 
+    testAVersion1RecordLoadsAndIsSavedAsTheCurrentVersion = function()
+      local f = fixture()
+      local old = { mode = "advanced", inputs = { "Gentian", "GentianNectar" }, product = "Clay", seen = "load" }
+      f.disk[FILE] = f.json.encode({ version = 1, world = "W 1", discovered = { old } })
+      local rec, status = f.store:load("W_1", "W 1")
+      lu.assertEquals(status, "loaded")
+      lu.assertNil(rec.readOnly)
+      lu.assertTrue(f.store:save("W_1", rec))
+      local written = f.json.decode(f.disk[FILE])
+      lu.assertEquals(written.version, record.VERSION)
+      lu.assertEquals(written.discovered, { old })
+    end,
+
+    testASaveThatFailsAtTheLastStepIsPendingAndOneBeforeItIsNot = function()
+      local f = fixture()
+      local real = f.files.rename
+      f.files.rename = function()
+        return nil, "locked"
+      end
+      local saved, stage = f.store:save("W_1", sample())
+      lu.assertFalse(saved)
+      lu.assertEquals(stage, "pending")
+      lu.assertNotNil(f.disk[FILE .. ".tmp"]) -- the finished copy is what the next load uses
+      f.files.rename = real
+      f.files.write = function()
+        return nil, "disk full"
+      end
+      local savedAgain, stageAgain = f.store:save("W_1", sample())
+      lu.assertFalse(savedAgain)
+      lu.assertNil(stageAgain)
+    end,
+
     testARecordFromANewerModIsNeverWritten = function()
       local f = fixture()
-      f.disk[FILE] = f.json.encode({ version = 2, world = "W 1", things = {} })
+      f.disk[FILE] = f.json.encode({ version = 3, world = "W 1", things = {} })
       local before = f.disk[FILE]
       local rec, status = f.store:load("W_1", "W 1")
       lu.assertEquals(status, "newer")
@@ -158,7 +190,7 @@ return {
 
     testTheCopyFollowsTheSameRulesAsTheFile = function()
       local newer = fixture()
-      newer.disk[FILE .. ".tmp"] = newer.json.encode({ version = 2, world = "W 1" })
+      newer.disk[FILE .. ".tmp"] = newer.json.encode({ version = 3, world = "W 1" })
       local rec, status = newer.store:load("W_1", "W 1")
       lu.assertEquals({ status, rec.readOnly }, { "newer", "newer" })
       lu.assertNil(newer.disk[FILE])
