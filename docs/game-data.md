@@ -165,12 +165,29 @@ Seen by the user (screenshots), with no mod error lines in UE4SS.log:
 - Show advanced / Show normal: the menu no longer flickers, and the search box keeps filtering after the switch (the left pane is cleared and rebuilt from its own button, with the input in it).
 - The extra spacing (8 between the item sheet lines, a leading two spaces before the counts, 8 around the page label and after "Filter:") looks right to the user.
 
+## Setting the filters of a cauldron from Lua (verified in game 2026-10-24, game 1.1.5024)
+
+Verified by the user in probes (the panel-probe mod's own code, not the API's panel tab implementation):
+
+- `CauldronFacilityComponent:NetCommandSetFilterName(slot, FName(item))` called from Lua sets a slot's filter (slot counted from 0). The panel updates, `CachedOutputName` gives the product, the discovery hook above sees the call, and the filters stay after saving and loading. `FName("None")` clears a slot.
+- Setting the filters of a cauldron that holds items empties the slots: the items go to the player's inventory (the game's pickup notice appears).
+- With the player's inventory full, in a normal save (1800 items in the three slots), the filters were set and the items dropped on the ground. In the save "Prueba", which the user plays in creative (sandbox) mode, the items vanished. The world's `IsSandbox` flag was false in both saves, so it is not a way to detect that mode.
+- Keeping the slots whose filter already matches a wanted input, then clearing the others before setting them, completes the recipe only with the last call (a probe: Wood, Limestone, Flax to Sand, Charcoal, Flax kept slot 2).
+- Reading `component.FacilityContainer.Slots` with `ipairs` crashed the game inside UE4SS: index it from 1 to `#slots`.
+
+## Verified in game 1.1.5024 (2026-10-24, mod 0.1.4 first build)
+
+Seen by the user: the Recipes side tab on the Normal and the Advanced cauldron panel, search that stays smooth, and no game hotkeys firing while typing in the search box, all with the favorites-only list of the first 0.1.4 build.
+
 ## Not verified yet
 
 - The mode and progress status lines staying right after a Show advanced / Show normal switch while the recipe index is still running (the 2026-10-23 look test did not cover it).
 
 Each of these ships disabled or marked as unverified until it is checked in game.
 
+- A kept slot (its filter already matches) that holds items: whether it keeps them when the other slots change.
+- Brewing progress of a cauldron when its recipe changes.
+- The Recipes side tab of the cauldron panel, full-index version (0.1.4): the search over every recipe, the Use mark, the progress line while the index is built. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.

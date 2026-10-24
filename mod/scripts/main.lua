@@ -2,6 +2,9 @@
 -- sheet and the recipes.* console commands, using only the public calls of the AF Mod Loader API. See the README for
 -- what it changes.
 local api = AF.require("af-modloader-api").use(AF)
+local apply = require("apply")
+local catalog = require("catalog")
+local cauldronTab = require("cauldron_tab")
 local commands = require("commands")
 local discover = require("discover")
 local session = require("session")
@@ -9,7 +12,7 @@ local sheet = require("sheet")
 local store = require("store")
 local uiPage = require("ui_page")
 
-local VERSION = "0.1.3"
+local VERSION = "0.1.4"
 
 -- The real file functions for the store (Lua's io and os, as the loader documents for AF.dataDir).
 local files = {
@@ -43,7 +46,7 @@ local files = {
 
 local recordStore = store.new({ dir = AF.dataDir, files = files, json = AF.json, log = AF.log })
 
-local ui, discoverer
+local ui, discoverer, panelTab
 local current = session.new({
   api = api,
   log = AF.log,
@@ -54,9 +57,11 @@ local current = session.new({
   end,
   onRefresh = function()
     ui:refresh()
+    panelTab:onIndexChange()
   end,
   onProgress = function(percent)
     ui:onProgress(percent)
+    panelTab:onProgress(percent)
   end,
 })
 discoverer = discover.new({
@@ -74,6 +79,13 @@ discoverer = discover.new({
 ui = uiPage.new({ api = api, log = AF.log, session = current, discover = discoverer })
 
 ui:install()
+panelTab = cauldronTab.new({
+  api = api,
+  log = AF.log,
+  session = current,
+  applier = apply.new({ api = api, log = AF.log, text = catalog.text, fname = FName }),
+})
+panelTab:install()
 sheet.new({ api = api, log = AF.log, session = current, ui = ui }):install()
 commands.install({
   api = api,
