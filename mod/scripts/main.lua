@@ -57,6 +57,7 @@ local current = session.new({
   end,
   onRefresh = function()
     ui:refresh()
+    panelTab:onIndexChange()
   end,
   onProgress = function(percent)
     ui:onProgress(percent)

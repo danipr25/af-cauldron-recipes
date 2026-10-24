@@ -65,7 +65,7 @@ end
 -- The line above the list.
 local function noteText(result, search)
   if #result.rows == 0 then
-    return search ~= "" and "Nothing matches the search." or "No recipes to show yet."
+    return search ~= "" and "Nothing matches the search." or "Star recipes or unlock some in the V menu."
   end
   if result.more then
     return string.format("Showing the first %d. Search to narrow.", #result.rows)
@@ -87,6 +87,8 @@ function Tab:build(page, info)
     return
   end
   local mode = info.kind
+  state.status = nil -- set again below, only when this build makes a line
+  state.info = info
   if state.message then
     sentence(page, state.message)
     state.message = nil
@@ -99,9 +101,7 @@ function Tab:build(page, info)
     end,
   })
   input:set(state.search)
-  local index = session.index
-  local line = indexLine(index)
-  state.index = index
+  local line = indexLine(session.index)
   if line then
     state.status = dark(page:text(line, { size = "small" }))
   end
@@ -110,17 +110,29 @@ function Tab:build(page, info)
   self:fill(state, rec, catalog, mode, info)
 end
 
--- The index advanced: only the status line of the page built last changes.
-function Tab:onProgress(percent)
+-- The status line of the page built last, while that page is the one showing: set on a dead handle is never tried.
+function Tab:updateStatus(percent)
   local state = self.state
-  if state and state.status then
-    state.status:set(indexLine(state.index, percent) or "All recipes found.")
+  if not (state and state.status and state.info and state.info.isCurrent()) then
+    return
   end
+  local line = indexLine(self.deps.session.index, percent) or "All recipes found."
+  state.status:set(line)
+end
+
+-- The index advanced: only the status line changes.
+function Tab:onProgress(percent)
+  self:updateStatus(percent)
+end
+
+-- The index finished, failed or was replaced.
+function Tab:onIndexChange()
+  self:updateStatus(nil)
 end
 
 -- Fills the list for the current search, and the line above it.
 function Tab:fill(state, rec, catalog, mode, info)
-  local result = recipeList.build(rec, catalog, state.index, mode, state)
+  local result = recipeList.build(rec, catalog, self.deps.session.index, mode, state)
   state.note:set(noteText(result, state.search))
   local list = state.list
   list:clear()
@@ -132,7 +144,14 @@ function Tab:fill(state, rec, catalog, mode, info)
       row:item(name, 1, { scale = INPUT_SCALE })
     end
     dark(row:mark("Use", function()
-      self.deps.applier:request(info, mode, entry, self:uiFor(state))
+      -- Going back to the Cauldron tab kills this page, and with it the status line.
+      local wrapped = setmetatable({
+        showGame = function()
+          state.status = nil
+          info.showGame()
+        end,
+      }, { __index = info })
+      self.deps.applier:request(wrapped, mode, entry, self:uiFor(state))
     end))
   end
 end

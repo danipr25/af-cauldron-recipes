@@ -175,6 +175,10 @@ Verified by the user in probes (the panel-probe mod's own code, not the API's pa
 - Keeping the slots whose filter already matches a wanted input, then clearing the others before setting them, completes the recipe only with the last call (a probe: Wood, Limestone, Flax to Sand, Charcoal, Flax kept slot 2).
 - Reading `component.FacilityContainer.Slots` with `ipairs` crashed the game inside UE4SS: index it from 1 to `#slots`.
 
+## Verified in game 1.1.5024 (2026-10-24, mod 0.1.4 first build)
+
+Seen by the user: the Recipes side tab on the Normal and the Advanced cauldron panel, search that stays smooth, and no game hotkeys firing while typing in the search box, all with the favorites-only list of the first 0.1.4 build.
+
 ## Not verified yet
 
 - The mode and progress status lines staying right after a Show advanced / Show normal switch while the recipe index is still running (the 2026-10-23 look test did not cover it).
@@ -183,7 +187,7 @@ Each of these ships disabled or marked as unverified until it is checked in game
 
 - A kept slot (its filter already matches) that holds items: whether it keeps them when the other slots change.
 - Brewing progress of a cauldron when its recipe changes.
-- The Recipes side tab of the cauldron panel as built by this mod (0.1.4): the list, the search, the Use mark, the progress line while the index is built and the Advanced cauldron. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
+- The Recipes side tab of the cauldron panel, full-index version (0.1.4): the search over every recipe, the Use mark, the progress line while the index is built. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.

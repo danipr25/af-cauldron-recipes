@@ -33,7 +33,7 @@ end
 -- when nothing needs to change, or
 -- { ok = true, clear = { slot, ... }, set = { { slot, name }, ... }, items = n, held = m } with
 -- slots counted from 0 (as the game's call takes them), `items` the number of items in the changing slots and `held`
--- the number in all slots (what the player is told, because what happens to a kept slot's items is not verified).
+-- the number in all slots (only written to the log).
 function apply.plan(slots, inputs)
   if #slots ~= #inputs then
     return { ok = false, reason = "slots" }
