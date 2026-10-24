@@ -165,12 +165,23 @@ Seen by the user (screenshots), with no mod error lines in UE4SS.log:
 - Show advanced / Show normal: the menu no longer flickers, and the search box keeps filtering after the switch (the left pane is cleared and rebuilt from its own button, with the input in it).
 - The extra spacing (8 between the item sheet lines, a leading two spaces before the counts, 8 around the page label and after "Filter:") looks right to the user.
 
+## Setting the filters of a cauldron from Lua (verified in game 2026-10-24, game 1.1.5024)
+
+Verified in probes by the user, with the API's panel tab mechanism:
+
+- `CauldronFacilityComponent:NetCommandSetFilterName(slot, FName(item))` called from Lua sets a slot's filter (slot counted from 0). The panel updates, `CachedOutputName` gives the product, the discovery hook above sees the call, and the filters stay after saving and loading. `FName("None")` clears a slot.
+- Setting the filters of a cauldron that holds items empties the slots: the items go to the player's inventory (the game's pickup notice appears).
+- With the player's inventory full, in a normal save (1800 items in the three slots), the filters were set and the items dropped on the ground. In a creative save the items vanished. The flag `IsSandbox` of the world is false in both, so it does not tell creative mode.
+- Keeping the slots whose filter already matches a wanted input, then clearing the others before setting them, completes the recipe only with the last call (a probe: Wood, Limestone, Flax to Sand, Charcoal, Flax kept slot 2).
+- Reading `component.FacilityContainer.Slots` with `ipairs` crashed the game inside UE4SS: index it from 1 to `#slots`.
+
 ## Not verified yet
 
 - The mode and progress status lines staying right after a Show advanced / Show normal switch while the recipe index is still running (the 2026-10-23 look test did not cover it).
 
 Each of these ships disabled or marked as unverified until it is checked in game.
 
+- The Recipes side tab of the cauldron panel as built by this mod (0.1.4): the list, the search, the Use mark, the confirmation and the Advanced cauldron. Multiplayer (a client calling `NetCommandSetFilterName`) is not verified.
 - `OnInventoryUpdate` on `UCauldronFacilityComponent` (no parameters in the header dump): how often it fires, and whether a cauldron without filters can be read from the items in its slots. Behind `DETECT_FROM_ITEMS = false` in `discover.lua`.
 - `UObject:GetWorld():GetAddress()` on a cauldron actor, used to skip cauldrons of another world. If it cannot be read, the mod logs it once and uses every cauldron found.
 - The localized names, read with `GetItemDisplayName` for every item (180 calls): the time is logged once.

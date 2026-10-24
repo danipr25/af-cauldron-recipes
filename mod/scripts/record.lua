@@ -259,11 +259,12 @@ function Record:addDiscovered(mode, inputs, product, seen)
   return changed
 end
 
--- Entries of this mode and product that are in the current game data (see revalidate), in the order found.
+-- Entries of this mode (and of this product, when given) that are in the current game data (see revalidate), in the
+-- order found.
 function Record:discoveredFor(mode, product)
   local list = {}
   for _, entry in ipairs(self.discovered) do
-    if entry.mode == mode and entry.product == product and not entry.unknown then
+    if entry.mode == mode and (product == nil or entry.product == product) and not entry.unknown then
       list[#list + 1] = entry
     end
   end

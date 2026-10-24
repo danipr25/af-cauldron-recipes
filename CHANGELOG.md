@@ -2,6 +2,12 @@
 
 All notable changes to Cauldron Recipes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/). While the version is 0.x, a minor version may change how the mod behaves and says how here.
 
+## [0.1.4] - 2026-10-24
+
+- A **Recipes** side tab on the cauldron panel (Normal and Advanced): a search box over the product and ingredient names, a **Show discovered** button, and a list of your favorites for that cauldron (with the toggle, the discovered recipes too, with no recipe twice), up to 40 at a time. Each row shows the product, its name, the ingredients and a **Use** mark.
+- **Use** sets that recipe on the cauldron you have open, through the game's own `NetCommandSetFilterName`, and goes back to the Cauldron tab. Filters that already match stay, the others are cleared and then set (so the game never sees a half-set recipe). If the cauldron holds items, the tab asks first how many go back to your inventory (what does not fit drops on the ground). It is the only change the mod makes to the game world and it happens only on that click.
+- Needs AF Mod Loader API 0.1.4 or later (`api.panels.tab`, `api.defer`, the tile `scale` option).
+
 ## [0.1.3] - 2026-10-24
 
 - Favorite recipes: a star after each recipe in the Recipes tab. A click marks or unmarks it, changing the star in place without rebuilding the list. Favorites are kept per world, in the world's record in `mods\.data`, never in the save.
